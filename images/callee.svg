@@ -1,0 +1,3652 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1900" height="928" onload="init(evt)" viewBox="0 0 1900 928" xmlns="http://www.w3.org/2000/svg">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:14px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:19px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 14 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+		search();
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) {
+				currentSearchTerm = term;
+				search();
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (currentSearchTerm === null) return;
+		var term = currentSearchTerm;
+
+		var re = new RegExp(term, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1900.0" height="928.0" fill="url(#background)"  />
+<text id="title" x="950.00" y="28" >Callee</text>
+<text id="details" x="10.00" y="909" > </text>
+<text id="unzoom" x="10.00" y="28" class="hide">Reset Zoom</text>
+<text id="search" x="1790.00" y="28" >Search</text>
+<text id="ignorecase" x="1874.00" y="28" >ic</text>
+<text id="matched" x="1790.00" y="909" > </text>
+<g id="frames">
+<g >
+<title>vtable stub (1 samples, 0.08%)</title><rect x="1572.4" y="475" width="1.6" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text  x="1575.41" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (4 samples, 0.34%)</title><rect x="1577.2" y="523" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1157.5" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1160.47" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.invokeReadObject (28 samples, 2.38%)</title><rect x="1602.7" y="443" width="44.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1605.73" y="453.5" >jav..</text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="281.3" y="667" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="284.31" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.grow (2 samples, 0.17%)</title><rect x="410.6" y="619" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="413.58" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.grow (2 samples, 0.17%)</title><rect x="1127.1" y="651" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1130.15" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readLong (1 samples, 0.08%)</title><rect x="330.8" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="333.78" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1613.9" y="235" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1616.90" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (4 samples, 0.34%)</title><rect x="1610.7" y="299" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="309.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readStreamHeader (26 samples, 2.21%)</title><rect x="241.4" y="715" width="41.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="244.41" y="725.5" >jav..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1151.1" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (3 samples, 0.25%)</title><rect x="1569.2" y="523" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (23 samples, 1.95%)</title><rect x="1159.1" y="587" width="36.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1162.07" y="597.5" >ja..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (15 samples, 1.27%)</title><rect x="1162.3" y="571" width="23.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1165.26" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setPrimFieldValues (6 samples, 0.51%)</title><rect x="1550.1" y="523" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1553.07" y="533.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1191.0" y="475" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1193.98" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (2 samples, 0.17%)</title><rect x="1629.9" y="331" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1632.86" y="341.5" ></text>
+</g>
+<g >
+<title>JVM_InternString (191 samples, 16.21%)</title><rect x="656.3" y="635" width="304.9" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text  x="659.35" y="645.5" >JVM_InternString</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (3 samples, 0.25%)</title><rect x="391.4" y="603" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="394.43" y="613.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.remove (2 samples, 0.17%)</title><rect x="1465.5" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1468.48" y="613.5" ></text>
+</g>
+<g >
+<title>java_lang_String::equals(oopDesc*, oopDesc*) (1 samples, 0.08%)</title><rect x="1368.1" y="523" width="1.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="1371.13" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (4 samples, 0.34%)</title><rect x="1088.8" y="667" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1091.85" y="677.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1641.0" y="43" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1644.04" y="53.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (3 samples, 0.25%)</title><rect x="322.8" y="555" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="325.80" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil$ClassLoaderWeakCache.get (1 samples, 0.08%)</title><rect x="1590.0" y="331" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1592.97" y="341.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (4 samples, 0.34%)</title><rect x="1532.5" y="523" width="6.4" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1535.51" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readByte (1 samples, 0.08%)</title><rect x="1151.1" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDescriptor (168 samples, 14.26%)</title><rect x="1146.3" y="635" width="268.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1149.30" y="645.5" >java/io/ObjectInputStream.read..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (62 samples, 5.26%)</title><rect x="426.5" y="619" width="99.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="429.54" y="629.5" >java/io/O..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1179.8" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1182.81" y="533.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="184.0" y="811" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="186.96" y="821.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="495.2" y="523" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="498.16" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (2 samples, 0.17%)</title><rect x="1183.0" y="555" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1186.01" y="565.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (1 samples, 0.08%)</title><rect x="1692.1" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1695.11" y="421.5" ></text>
+</g>
+<g >
+<title>StringTable::do_intern(Handle, unsigned short*, int, unsigned long, Thread*) (13 samples, 1.10%)</title><rect x="1349.0" y="539" width="20.7" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1351.98" y="549.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1184.6" y="507" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1187.60" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (3 samples, 0.25%)</title><rect x="1590.0" y="443" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1592.97" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readShort (26 samples, 2.21%)</title><rect x="241.4" y="699" width="41.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="244.41" y="709.5" >jav..</text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1289.9" y="523" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1292.93" y="533.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb_internal (1 samples, 0.08%)</title><rect x="1191.0" y="379" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1193.98" y="389.5" ></text>
+</g>
+<g >
+<title>java/lang/String.lastIndexOf (4 samples, 0.34%)</title><rect x="1419.2" y="603" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1422.20" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (3 samples, 0.25%)</title><rect x="1152.7" y="571" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1155.68" y="581.5" ></text>
+</g>
+<g >
+<title>java_lang_String::equals(oopDesc*, oopDesc*) (28 samples, 2.38%)</title><rect x="784.0" y="587" width="44.7" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="787.02" y="597.5" >jav..</text>
+</g>
+<g >
+<title>Java_java_lang_String_intern (1 samples, 0.08%)</title><rect x="1403.2" y="571" width="1.6" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text  x="1406.24" y="581.5" ></text>
+</g>
+<g >
+<title>vtable stub (1 samples, 0.08%)</title><rect x="1617.1" y="251" width="1.6" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text  x="1620.10" y="261.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Method.invoke (2 samples, 0.17%)</title><rect x="1859.7" y="699" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1862.68" y="709.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject (79 samples, 6.71%)</title><rect x="1575.6" y="571" width="126.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1578.60" y="581.5" >java/io/Objec..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNull (1 samples, 0.08%)</title><rect x="1607.5" y="331" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1610.52" y="341.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (16 samples, 1.36%)</title><rect x="1607.5" y="347" width="25.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1610.52" y="357.5" >j..</text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1289.9" y="539" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1292.93" y="549.5" ></text>
+</g>
+<g >
+<title>jlong_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="394.6" y="555" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="397.62" y="565.5" ></text>
+</g>
+<g >
+<title>java/lang/String.intern (1 samples, 0.08%)</title><rect x="1612.3" y="235" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1615.31" y="245.5" ></text>
+</g>
+<g >
+<title>vtable stub (1 samples, 0.08%)</title><rect x="1703.3" y="651" width="1.6" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text  x="1706.28" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.invokeReadObject (1 samples, 0.08%)</title><rect x="1701.7" y="491" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (7 samples, 0.59%)</title><rect x="1617.1" y="283" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1620.10" y="293.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1191.0" y="523" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1193.98" y="533.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readByteArray (6 samples, 0.51%)</title><rect x="203.1" y="843" width="9.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="206.11" y="853.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readLong (2 samples, 0.17%)</title><rect x="1644.2" y="347" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="357.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb_core (1 samples, 0.08%)</title><rect x="1058.5" y="427" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1061.52" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readFields (5 samples, 0.42%)</title><rect x="1634.7" y="203" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="213.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readBlockHeader (1 samples, 0.08%)</title><rect x="1151.1" y="539" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="549.5" ></text>
+</g>
+<g >
+<title>Handle::Handle(Thread*, oopDesc*) (1 samples, 0.08%)</title><rect x="1347.4" y="539" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="1350.39" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (104 samples, 8.83%)</title><rect x="415.4" y="635" width="165.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="418.37" y="645.5" >java/io/ObjectInpu..</text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.putIfAbsent (1 samples, 0.08%)</title><rect x="1076.1" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1079.08" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readShort (1 samples, 0.08%)</title><rect x="1157.5" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1160.47" y="597.5" ></text>
+</g>
+<g >
+<title>net_rx_action (1 samples, 0.08%)</title><rect x="1058.5" y="523" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1061.52" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (46 samples, 3.90%)</title><rect x="1732.0" y="667" width="73.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1735.00" y="677.5" >java/i..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (4 samples, 0.34%)</title><rect x="1540.5" y="507" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1543.49" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (3 samples, 0.25%)</title><rect x="1569.2" y="491" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (9 samples, 0.76%)</title><rect x="1687.3" y="539" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1690.32" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (1 samples, 0.08%)</title><rect x="319.6" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="322.61" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (10 samples, 0.85%)</title><rect x="1163.9" y="539" width="15.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1166.85" y="549.5" ></text>
+</g>
+<g >
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.209] (1 samples, 0.08%)</title><rect x="966.0" y="635" width="1.6" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="968.96" y="645.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (4 samples, 0.34%)</title><rect x="1760.7" y="603" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1763.73" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.setBlockDataMode (1 samples, 0.08%)</title><rect x="1701.7" y="363" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="373.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (3 samples, 0.25%)</title><rect x="1133.5" y="587" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1136.53" y="597.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putChars (3 samples, 0.25%)</title><rect x="1674.6" y="347" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1677.55" y="357.5" ></text>
+</g>
+<g >
+<title>consume_skb (1 samples, 0.08%)</title><rect x="603.7" y="475" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="606.68" y="485.5" ></text>
+</g>
+<g >
+<title>vmxnet3_tq_tx_complete	[vmxnet3] (1 samples, 0.08%)</title><rect x="603.7" y="507" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="606.68" y="517.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (1 samples, 0.08%)</title><rect x="1408.0" y="571" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1411.03" y="581.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (2 samples, 0.17%)</title><rect x="1621.9" y="171" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1624.88" y="181.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1191.0" y="459" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1193.98" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1545.3" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1548.28" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1625.1" y="219" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1628.08" y="229.5" ></text>
+</g>
+<g >
+<title>net_rx_action (1 samples, 0.08%)</title><rect x="1858.1" y="587" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1861.08" y="597.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1455.9" y="555" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1458.91" y="565.5" ></text>
+</g>
+<g >
+<title>tcp_v4_do_rcv (1 samples, 0.08%)</title><rect x="1058.5" y="331" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1061.52" y="341.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setObjFieldValues (1 samples, 0.08%)</title><rect x="1685.7" y="491" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1688.72" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultCheckFieldValues (4 samples, 0.34%)</title><rect x="1088.8" y="715" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1091.85" y="725.5" ></text>
+</g>
+<g >
+<title>JNIHandles::make_local(JNIEnv_*, oopDesc*) (6 samples, 0.51%)</title><rect x="667.5" y="619" width="9.6" height="15.0" fill="rgb(220,220,66)" rx="2" ry="2" />
+<text  x="670.52" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (7 samples, 0.59%)</title><rect x="1827.8" y="667" width="11.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1830.76" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.grow (1 samples, 0.08%)</title><rect x="1700.1" y="507" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1703.08" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.lookup (2 samples, 0.17%)</title><rect x="1468.7" y="619" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1471.68" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (2 samples, 0.17%)</title><rect x="1476.7" y="635" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1479.66" y="645.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1191.0" y="507" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1193.98" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (66 samples, 5.60%)</title><rect x="1195.8" y="587" width="105.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1198.77" y="597.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (3 samples, 0.25%)</title><rect x="1175.0" y="491" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1178.03" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setObjFieldValues (7 samples, 0.59%)</title><rect x="1827.8" y="699" width="11.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1830.76" y="709.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (1 samples, 0.08%)</title><rect x="389.8" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="392.83" y="597.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb (1 samples, 0.08%)</title><rect x="1058.5" y="443" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1061.52" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (4 samples, 0.34%)</title><rect x="1569.2" y="555" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="565.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1196148ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1196148ul&gt;::oop_access_barrier(void*) (1 samples, 0.08%)</title><rect x="753.7" y="587" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="756.70" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.grow (4 samples, 0.34%)</title><rect x="1186.2" y="555" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1189.20" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (69 samples, 5.86%)</title><rect x="1577.2" y="539" width="110.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="549.5" >java/io/Obj..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (3 samples, 0.25%)</title><rect x="1637.8" y="139" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1640.84" y="149.5" ></text>
+</g>
+<g >
+<title>java/lang/String.lastIndexOf (4 samples, 0.34%)</title><rect x="1419.2" y="587" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1422.20" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setPrimFieldValues (8 samples, 0.68%)</title><rect x="1546.9" y="539" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1549.88" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (1 samples, 0.08%)</title><rect x="1685.7" y="507" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1688.72" y="517.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1634.7" y="123" width="1.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1637.65" y="133.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1414.4" y="587" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1417.41" y="597.5" ></text>
+</g>
+<g >
+<title>vmxnet3_poll_rx_only	[vmxnet3] (1 samples, 0.08%)</title><rect x="1191.0" y="427" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1193.98" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (2 samples, 0.17%)</title><rect x="1644.2" y="299" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="309.5" ></text>
+</g>
+<g >
+<title>com/sun/org/apache/xerces/internal/jaxp/datatype/XMLGregorianCalendarImpl.save (1 samples, 0.08%)</title><rect x="1510.2" y="571" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1513.17" y="581.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1414.4" y="539" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1417.41" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.readNonProxy (1 samples, 0.08%)</title><rect x="1591.6" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1594.56" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (380 samples, 32.26%)</title><rect x="1120.8" y="683" width="606.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1123.76" y="693.5" >java/io/ObjectInputStream.readOrdinaryObject</text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readData (1 samples, 0.08%)</title><rect x="239.8" y="715" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="242.81" y="725.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (1 samples, 0.08%)</title><rect x="1593.2" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1596.16" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (6 samples, 0.51%)</title><rect x="1111.2" y="667" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1114.19" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.invokeReadObject (5 samples, 0.42%)</title><rect x="1634.7" y="283" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="293.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (3 samples, 0.25%)</title><rect x="322.8" y="619" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="325.80" y="629.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (5 samples, 0.42%)</title><rect x="1671.4" y="363" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1674.36" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadObject (7 samples, 0.59%)</title><rect x="1633.1" y="363" width="11.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1636.06" y="373.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/Reflection.isSubclassOf (2 samples, 0.17%)</title><rect x="1869.3" y="667" width="3.1" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1872.25" y="677.5" ></text>
+</g>
+<g >
+<title>jlong_disjoint_arraycopy (10 samples, 0.85%)</title><rect x="187.1" y="843" width="16.0" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="190.15" y="853.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (9 samples, 0.76%)</title><rect x="396.2" y="619" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="399.21" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (1 samples, 0.08%)</title><rect x="1641.0" y="107" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1644.04" y="117.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (2 samples, 0.17%)</title><rect x="1629.9" y="315" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1632.86" y="325.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ArrayDataSerializableFactory.create (1 samples, 0.08%)</title><rect x="236.6" y="763" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="773.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1058.5" y="571" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1061.52" y="581.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(Handle, unsigned short*, int, Thread*) (1 samples, 0.08%)</title><rect x="1334.6" y="555" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1337.62" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="394.6" y="571" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="397.62" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (6 samples, 0.51%)</title><rect x="1634.7" y="299" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="309.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamField.&lt;init&gt; (2 samples, 0.17%)</title><rect x="606.9" y="651" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="609.88" y="661.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;5292148ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)0, 5292148ul&gt;::oop_access_barrier(void*, oopDesc*) (3 samples, 0.25%)</title><rect x="1321.9" y="555" width="4.7" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1324.85" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (1 samples, 0.08%)</title><rect x="1586.8" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1589.77" y="469.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1597.9" y="379" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1600.95" y="389.5" ></text>
+</g>
+<g >
+<title>java/util/HashSet.add (3 samples, 0.25%)</title><rect x="1489.4" y="619" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1492.42" y="629.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1858.1" y="651" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1861.08" y="661.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.putIfAbsent (2 samples, 0.17%)</title><rect x="1462.3" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1465.29" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (2 samples, 0.17%)</title><rect x="1644.2" y="267" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (2 samples, 0.17%)</title><rect x="1696.9" y="507" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1699.89" y="517.5" ></text>
+</g>
+<g >
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.209] (9 samples, 0.76%)</title><rect x="946.8" y="619" width="14.4" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="949.81" y="629.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (1 samples, 0.08%)</title><rect x="964.4" y="635" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="967.36" y="645.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.resize (2 samples, 0.17%)</title><rect x="1851.7" y="635" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1854.70" y="645.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.loadClass (8 samples, 0.68%)</title><rect x="286.1" y="683" width="12.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="289.10" y="693.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/JavaDefaultSerializers$JavaSerializer.read (1,025 samples, 87.01%)</title><rect x="241.4" y="795" width="1635.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="244.41" y="805.5" >com/hazelcast/internal/serialization/impl/JavaDefaultSerializers$JavaSerializer.read</text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (16 samples, 1.36%)</title><rect x="498.4" y="587" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="501.35" y="597.5" >j..</text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="522.3" y="507" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="525.29" y="517.5" ></text>
+</g>
+<g >
+<title>HandleMark::~HandleMark() (1 samples, 0.08%)</title><rect x="1366.5" y="523" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="1369.54" y="533.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (11 samples, 0.93%)</title><rect x="1770.3" y="603" width="17.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1773.31" y="613.5" ></text>
+</g>
+<g >
+<title>net_rx_action (1 samples, 0.08%)</title><rect x="523.9" y="507" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="526.89" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadObject (2 samples, 0.17%)</title><rect x="1604.3" y="363" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1607.33" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="1629.9" y="267" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1632.86" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (24 samples, 2.04%)</title><rect x="1647.4" y="475" width="38.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1650.42" y="485.5" >ja..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (3 samples, 0.25%)</title><rect x="1513.4" y="507" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1516.36" y="517.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/Reference.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1082.5" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1085.46" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (1 samples, 0.08%)</title><rect x="1685.7" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1688.72" y="469.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (10 samples, 0.85%)</title><rect x="1060.1" y="651" width="16.0" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1063.12" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (26 samples, 2.21%)</title><rect x="241.4" y="683" width="41.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="244.41" y="693.5" >jav..</text>
+</g>
+<g >
+<title>StringTable::do_intern(Handle, unsigned short*, int, unsigned long, Thread*) (1 samples, 0.08%)</title><rect x="1582.0" y="395" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1584.99" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (119 samples, 10.10%)</title><rect x="415.4" y="651" width="189.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="418.37" y="661.5" >java/io/ObjectInputS..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getReflector (68 samples, 5.77%)</title><rect x="972.3" y="683" width="108.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="975.34" y="693.5" >java/io/Obj..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (2 samples, 0.17%)</title><rect x="1596.3" y="427" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1599.35" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (13 samples, 1.10%)</title><rect x="1162.3" y="555" width="20.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1165.26" y="565.5" ></text>
+</g>
+<g >
+<title>java/util/HashSet.contains (2 samples, 0.17%)</title><rect x="1854.9" y="683" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1857.89" y="693.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (5 samples, 0.42%)</title><rect x="1131.9" y="635" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1134.94" y="645.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1138.3" y="603" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1141.32" y="613.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.&lt;init&gt; (26 samples, 2.21%)</title><rect x="241.4" y="747" width="41.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="244.41" y="757.5" >com..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (9 samples, 0.76%)</title><rect x="1808.6" y="667" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1811.61" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (2 samples, 0.17%)</title><rect x="334.0" y="619" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="629.5" ></text>
+</g>
+<g >
+<title>Handle::Handle(Thread*, oopDesc*) (4 samples, 0.34%)</title><rect x="694.7" y="603" width="6.3" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="697.65" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (4 samples, 0.34%)</title><rect x="321.2" y="651" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="324.21" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1613.9" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1616.90" y="261.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (1 samples, 0.08%)</title><rect x="1684.1" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1687.13" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1682.5" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1685.53" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1597.9" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1600.95" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (1 samples, 0.08%)</title><rect x="1634.7" y="155" width="1.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="165.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout (12 samples, 1.02%)</title><rect x="1840.5" y="715" width="19.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1843.53" y="725.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject (16 samples, 1.36%)</title><rect x="1607.5" y="363" width="25.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1610.52" y="373.5" >j..</text>
+</g>
+<g >
+<title>java/util/HashMap$TreeNode.getTreeNode (2 samples, 0.17%)</title><rect x="1854.9" y="635" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1857.89" y="645.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="354.7" y="603" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="357.72" y="613.5" ></text>
+</g>
+<g >
+<title>__wake_up_common_lock (1 samples, 0.08%)</title><rect x="1058.5" y="251" width="1.6" height="15.0" fill="rgb(223,123,0)" rx="2" ry="2" />
+<text  x="1061.52" y="261.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1151.1" y="507" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="517.5" ></text>
+</g>
+<g >
+<title>rcu_report_qs_rnp (1 samples, 0.08%)</title><rect x="495.2" y="491" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="498.16" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (3 samples, 0.25%)</title><rect x="1688.9" y="491" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="501.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1826.2" y="619" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1829.16" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadObject (5 samples, 0.42%)</title><rect x="1561.2" y="571" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1564.24" y="581.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="522.3" y="459" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="525.29" y="469.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1826.2" y="683" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1829.16" y="693.5" ></text>
+</g>
+<g >
+<title>ip_rcv (1 samples, 0.08%)</title><rect x="1191.0" y="331" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1193.98" y="341.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1629.9" y="283" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1632.86" y="293.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (3 samples, 0.25%)</title><rect x="1688.9" y="475" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="485.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1609.1" y="219" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1612.12" y="229.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil.newObjectInputStream (26 samples, 2.21%)</title><rect x="241.4" y="779" width="41.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="244.41" y="789.5" >com..</text>
+</g>
+<g >
+<title>HandleMark::~HandleMark() (1 samples, 0.08%)</title><rect x="782.4" y="587" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="785.43" y="597.5" ></text>
+</g>
+<g >
+<title>JVM_InternString (1 samples, 0.08%)</title><rect x="1612.3" y="219" width="1.6" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text  x="1615.31" y="229.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readShort (1 samples, 0.08%)</title><rect x="332.4" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="335.38" y="661.5" ></text>
+</g>
+<g >
+<title>java/lang/CharacterDataLatin1.isOtherLowercase (1 samples, 0.08%)</title><rect x="1590.0" y="347" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1592.97" y="357.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1196148ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1196148ul&gt;::oop_access_barrier(void*) (2 samples, 0.17%)</title><rect x="1344.2" y="539" width="3.2" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1347.19" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (4 samples, 0.34%)</title><rect x="1618.7" y="219" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1621.69" y="229.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1698.5" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1701.49" y="485.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/DataSerializableSerializer.read (3 samples, 0.25%)</title><rect x="236.6" y="795" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="805.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.&lt;init&gt; (26 samples, 2.21%)</title><rect x="241.4" y="763" width="41.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="244.41" y="773.5" >com..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (1 samples, 0.08%)</title><rect x="1610.7" y="219" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="229.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.putVal (2 samples, 0.17%)</title><rect x="1491.0" y="587" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1494.02" y="597.5" ></text>
+</g>
+<g >
+<title>ktime_get_real (1 samples, 0.08%)</title><rect x="523.9" y="427" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="526.89" y="437.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1058.5" y="555" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1061.52" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/util/collection/ArrayUtils.boundsCheck (1 samples, 0.08%)</title><rect x="1783.1" y="587" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1786.07" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="394.6" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="397.62" y="597.5" ></text>
+</g>
+<g >
+<title>tcp_v4_rcv (1 samples, 0.08%)</title><rect x="1058.5" y="347" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1061.52" y="357.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.remove (2 samples, 0.17%)</title><rect x="1077.7" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1080.67" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setPrimFieldValues (3 samples, 0.25%)</title><rect x="1564.4" y="539" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1567.43" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout (7 samples, 0.59%)</title><rect x="1484.6" y="651" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1487.63" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (6 samples, 0.51%)</title><rect x="1291.5" y="555" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1294.53" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readFully (1 samples, 0.08%)</title><rect x="1605.9" y="331" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1608.93" y="341.5" ></text>
+</g>
+<g >
+<title>java/util/Date.readObject (2 samples, 0.17%)</title><rect x="1644.2" y="379" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="389.5" ></text>
+</g>
+<g >
+<title>JNIHandles::make_local(JNIEnv_*, oopDesc*) (1 samples, 0.08%)</title><rect x="654.8" y="635" width="1.5" height="15.0" fill="rgb(220,220,66)" rx="2" ry="2" />
+<text  x="657.75" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (1 samples, 0.08%)</title><rect x="1609.1" y="283" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="293.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1858.1" y="619" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1861.08" y="629.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (2 samples, 0.17%)</title><rect x="1459.1" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1462.10" y="613.5" ></text>
+</g>
+<g >
+<title>ThreadInVMfromNative::~ThreadInVMfromNative() (7 samples, 0.59%)</title><rect x="1387.3" y="555" width="11.2" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="1390.28" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (1 samples, 0.08%)</title><rect x="298.9" y="699" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="301.86" y="709.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1154.3" y="555" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1157.28" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (18 samples, 1.53%)</title><rect x="1518.1" y="555" width="28.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1521.15" y="565.5" >j..</text>
+</g>
+<g >
+<title>java/lang/StringLatin1.lastIndexOf (4 samples, 0.34%)</title><rect x="1419.2" y="571" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1422.20" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (8 samples, 0.68%)</title><rect x="1617.1" y="315" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1620.10" y="325.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1414.4" y="523" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1417.41" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (1 samples, 0.08%)</title><rect x="1682.5" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1685.53" y="453.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1682.5" y="379" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1685.53" y="389.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/spi/Operation.readData (2 samples, 0.17%)</title><rect x="238.2" y="763" width="3.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="241.22" y="773.5" ></text>
+</g>
+<g >
+<title>__wake_up_common_lock (1 samples, 0.08%)</title><rect x="495.2" y="459" width="1.6" height="15.0" fill="rgb(223,123,0)" rx="2" ry="2" />
+<text  x="498.16" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1597.9" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1600.95" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (2 samples, 0.17%)</title><rect x="1874.0" y="747" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1877.04" y="757.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (2 samples, 0.17%)</title><rect x="1192.6" y="571" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1195.58" y="581.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb_internal (1 samples, 0.08%)</title><rect x="523.9" y="443" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="526.89" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (1 samples, 0.08%)</title><rect x="1607.5" y="315" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1610.52" y="325.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Method.invoke (1 samples, 0.08%)</title><rect x="1701.7" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (1 samples, 0.08%)</title><rect x="1626.7" y="235" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1629.67" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1626.7" y="219" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1629.67" y="229.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflectorKey.&lt;init&gt; (65 samples, 5.52%)</title><rect x="972.3" y="667" width="103.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="975.34" y="677.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>java_lang_String::as_unicode_string(oopDesc*, int&amp;, Thread*) (1 samples, 0.08%)</title><rect x="1612.3" y="187" width="1.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="1615.31" y="197.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (1 samples, 0.08%)</title><rect x="1765.5" y="555" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1768.52" y="565.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb (1 samples, 0.08%)</title><rect x="1858.1" y="539" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1861.08" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (14 samples, 1.19%)</title><rect x="581.3" y="619" width="22.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="584.34" y="629.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.tryPrimitiveClass (1 samples, 0.08%)</title><rect x="1590.0" y="395" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1592.97" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (1 samples, 0.08%)</title><rect x="1588.4" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1591.37" y="453.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.getNode (1 samples, 0.08%)</title><rect x="1494.2" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1497.21" y="597.5" ></text>
+</g>
+<g >
+<title>kfree_skbmem (1 samples, 0.08%)</title><rect x="603.7" y="459" width="1.6" height="15.0" fill="rgb(229,129,0)" rx="2" ry="2" />
+<text  x="606.68" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getReflector (23 samples, 1.95%)</title><rect x="1432.0" y="619" width="36.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1434.97" y="629.5" >ja..</text>
+</g>
+<g >
+<title>com/hazelcast/util/collection/ArrayUtils.boundsCheck (7 samples, 0.59%)</title><rect x="166.4" y="843" width="11.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="169.40" y="853.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (459 samples, 38.96%)</title><rect x="1095.2" y="715" width="732.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1098.23" y="725.5" >java/io/ObjectInputStream.defaultReadFields</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadObject (30 samples, 2.55%)</title><rect x="1511.8" y="571" width="47.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1514.77" y="581.5" >jav..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (3 samples, 0.25%)</title><rect x="1479.8" y="635" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1482.85" y="645.5" ></text>
+</g>
+<g >
+<title>vmxnet3_rq_rx_complete	[vmxnet3] (1 samples, 0.08%)</title><rect x="523.9" y="475" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="526.89" y="485.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1695.3" y="459" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1698.30" y="469.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="523.9" y="555" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="526.89" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1588.4" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1591.37" y="405.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="522.3" y="475" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="525.29" y="485.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1097844ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1097844ul&gt;::oop_access_barrier(void*) (1 samples, 0.08%)</title><rect x="653.2" y="635" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="656.16" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (2 samples, 0.17%)</title><rect x="1629.9" y="299" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1632.86" y="309.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1414.4" y="507" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1417.41" y="517.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil$ClassLoaderWeakCache.get (4 samples, 0.34%)</title><rect x="1139.9" y="587" width="6.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1142.92" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.initNonProxy (1 samples, 0.08%)</title><rect x="1615.5" y="283" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1618.50" y="293.5" ></text>
+</g>
+<g >
+<title>all (1,178 samples, 100%)</title><rect x="10.0" y="875" width="1880.0" height="15.0" fill="rgb(255,130,130)" rx="2" ry="2" />
+<text  x="13.00" y="885.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1191.0" y="491" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1193.98" y="501.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5447.invoke (1 samples, 0.08%)</title><rect x="1701.7" y="603" width="1.6" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1704.68" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (1 samples, 0.08%)</title><rect x="1685.7" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1688.72" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (63 samples, 5.35%)</title><rect x="1585.2" y="491" width="100.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1588.18" y="501.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1187956ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1187956ul&gt;::oop_access_barrier(void*) (1 samples, 0.08%)</title><rect x="752.1" y="587" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="755.11" y="597.5" ></text>
+</g>
+<g >
+<title>java_lang_String::equals(oopDesc*, oopDesc*) (1 samples, 0.08%)</title><rect x="930.8" y="603" width="1.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="933.85" y="613.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1644.2" y="203" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1647.23" y="213.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="603.7" y="635" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="606.68" y="645.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1187956ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1187956ul&gt;::oop_access_barrier(void*) (3 samples, 0.25%)</title><rect x="1339.4" y="539" width="4.8" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1342.41" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (1 samples, 0.08%)</title><rect x="1701.7" y="555" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.resolveClass (1 samples, 0.08%)</title><rect x="1590.0" y="427" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1592.97" y="437.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.tryLoadClass (1 samples, 0.08%)</title><rect x="1577.2" y="459" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1580.20" y="469.5" ></text>
+</g>
+<g >
+<title>java/util/HashSet.contains (1 samples, 0.08%)</title><rect x="1494.2" y="619" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1497.21" y="629.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/WeakReference.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1082.5" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1085.46" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.invokeReadObject (130 samples, 11.04%)</title><rect x="1495.8" y="651" width="207.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1498.81" y="661.5" >java/io/ObjectStreamCla..</text>
+</g>
+<g >
+<title>ip_rcv (1 samples, 0.08%)</title><rect x="1058.5" y="411" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1061.52" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (1 samples, 0.08%)</title><rect x="327.6" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="330.59" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.checkDeserialize (1 samples, 0.08%)</title><rect x="1862.9" y="731" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1865.87" y="741.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap$TreeNode.getTreeNode (1 samples, 0.08%)</title><rect x="1494.2" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1497.21" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadObject (1 samples, 0.08%)</title><rect x="1701.7" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (1 samples, 0.08%)</title><rect x="1475.1" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1478.06" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (11 samples, 0.93%)</title><rect x="373.9" y="603" width="17.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="376.87" y="613.5" ></text>
+</g>
+<g >
+<title>java/math/BigInteger.readObject (5 samples, 0.42%)</title><rect x="1634.7" y="219" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="229.5" ></text>
+</g>
+<g >
+<title>vmxnet3_rq_rx_complete	[vmxnet3] (1 samples, 0.08%)</title><rect x="1858.1" y="555" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1861.08" y="565.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1679.3" y="379" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1682.34" y="389.5" ></text>
+</g>
+<g >
+<title>java/lang/StringLatin1.hashCode (2 samples, 0.17%)</title><rect x="1143.1" y="539" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1146.11" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.checkObjFieldValueTypes (4 samples, 0.34%)</title><rect x="1088.8" y="699" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1091.85" y="709.5" ></text>
+</g>
+<g >
+<title>java/lang/StringLatin1.lastIndexOf (2 samples, 0.17%)</title><rect x="969.2" y="635" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="972.15" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (10 samples, 0.85%)</title><rect x="356.3" y="635" width="16.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="359.32" y="645.5" ></text>
+</g>
+<g >
+<title>java/lang/String.intern (1 samples, 0.08%)</title><rect x="1582.0" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1584.99" y="453.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.loadClass (1 samples, 0.08%)</title><rect x="1577.2" y="475" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1580.20" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (1 samples, 0.08%)</title><rect x="353.1" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="356.12" y="581.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb (1 samples, 0.08%)</title><rect x="1058.5" y="475" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1061.52" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1695.3" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1698.30" y="485.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (4 samples, 0.34%)</title><rect x="517.5" y="555" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="520.50" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readData (6 samples, 0.51%)</title><rect x="203.1" y="859" width="9.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="206.11" y="869.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (2 samples, 0.17%)</title><rect x="1578.8" y="443" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="453.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="184.0" y="795" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="186.96" y="805.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1181.4" y="523" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1184.41" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (998 samples, 84.72%)</title><rect x="284.5" y="763" width="1592.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="287.50" y="773.5" >java/io/ObjectInputStream.readObject0</text>
+</g>
+<g >
+<title>java/lang/StringLatin1.hashCode (16 samples, 1.36%)</title><rect x="1433.6" y="571" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1436.57" y="581.5" >j..</text>
+</g>
+<g >
+<title>jbyte_arraycopy (2 samples, 0.17%)</title><rect x="595.7" y="603" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="598.70" y="613.5" ></text>
+</g>
+<g >
+<title>java/lang/String.hashCode (1 samples, 0.08%)</title><rect x="1577.2" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1179.8" y="539" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1182.81" y="549.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;5292148ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)0, 5292148ul&gt;::oop_access_barrier(void*, oopDesc*) (1 samples, 0.08%)</title><rect x="1333.0" y="539" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1336.02" y="549.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (1 samples, 0.08%)</title><rect x="1267.6" y="491" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1270.59" y="501.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readByteArray (1 samples, 0.08%)</title><rect x="239.8" y="699" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="242.81" y="709.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1634.7" y="139" width="1.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="149.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.containsKey (1 samples, 0.08%)</title><rect x="1494.2" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1497.21" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (1 samples, 0.08%)</title><rect x="1130.3" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1133.34" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1593.2" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1596.16" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflectorKey.&lt;init&gt; (16 samples, 1.36%)</title><rect x="1433.6" y="603" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1436.57" y="613.5" >j..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1594.8" y="427" width="1.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1597.75" y="437.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (8 samples, 0.68%)</title><rect x="1044.2" y="619" width="12.7" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1047.16" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (15 samples, 1.27%)</title><rect x="372.3" y="619" width="23.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="375.28" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (3 samples, 0.25%)</title><rect x="1564.4" y="555" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1567.43" y="565.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (32 samples, 2.72%)</title><rect x="1336.2" y="555" width="51.1" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1339.21" y="565.5" >Stri..</text>
+</g>
+<g >
+<title>Handle::Handle(Thread*, oopDesc*) (1 samples, 0.08%)</title><rect x="1364.9" y="523" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="1367.94" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1593.2" y="379" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1596.16" y="389.5" ></text>
+</g>
+<g >
+<title>java/lang/String.lastIndexOf (2 samples, 0.17%)</title><rect x="969.2" y="651" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="972.15" y="661.5" ></text>
+</g>
+<g >
+<title>tcp_rcv_established (1 samples, 0.08%)</title><rect x="1058.5" y="315" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1061.52" y="325.5" ></text>
+</g>
+<g >
+<title>itable stub (1 samples, 0.08%)</title><rect x="235.0" y="795" width="1.6" height="15.0" fill="rgb(237,104,104)" rx="2" ry="2" />
+<text  x="238.03" y="805.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (2 samples, 0.17%)</title><rect x="1874.0" y="715" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1877.04" y="725.5" ></text>
+</g>
+<g >
+<title>ip_local_deliver_finish (1 samples, 0.08%)</title><rect x="1058.5" y="363" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1061.52" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="334.0" y="571" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (14 samples, 1.19%)</title><rect x="581.3" y="635" width="22.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="584.34" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (1 samples, 0.08%)</title><rect x="1151.1" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="597.5" ></text>
+</g>
+<g >
+<title>tcp_filter (1 samples, 0.08%)</title><rect x="1858.1" y="395" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1861.08" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (1 samples, 0.08%)</title><rect x="1588.4" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1591.37" y="437.5" ></text>
+</g>
+<g >
+<title>security_sock_rcv_skb (1 samples, 0.08%)</title><rect x="1858.1" y="363" width="1.6" height="15.0" fill="rgb(238,138,0)" rx="2" ry="2" />
+<text  x="1861.08" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (6 samples, 0.51%)</title><rect x="1634.7" y="347" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="357.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.getNode (1 samples, 0.08%)</title><rect x="1601.1" y="379" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1604.14" y="389.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.setBlockDataMode (1 samples, 0.08%)</title><rect x="1109.6" y="683" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1112.59" y="693.5" ></text>
+</g>
+<g >
+<title>ip_local_deliver (1 samples, 0.08%)</title><rect x="1858.1" y="443" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1861.08" y="453.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (2 samples, 0.17%)</title><rect x="334.0" y="539" width="3.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="336.97" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.&lt;init&gt; (26 samples, 2.21%)</title><rect x="241.4" y="731" width="41.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="244.41" y="741.5" >jav..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (1 samples, 0.08%)</title><rect x="1414.4" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1417.41" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1693.7" y="491" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1696.70" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readTypeString (23 samples, 1.95%)</title><rect x="1159.1" y="603" width="36.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1162.07" y="613.5" >ja..</text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1626.7" y="187" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1629.67" y="197.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readUTF (3 samples, 0.25%)</title><rect x="1885.2" y="859" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1888.21" y="869.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/ReflectionFactory.newConstructorAccessor (9 samples, 0.76%)</title><rect x="1709.7" y="619" width="14.3" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1712.66" y="629.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (4 samples, 0.34%)</title><rect x="1173.4" y="523" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1176.43" y="533.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (3 samples, 0.25%)</title><rect x="590.9" y="587" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="593.92" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$WeakClassKey.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1468.7" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1471.68" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (2 samples, 0.17%)</title><rect x="334.0" y="635" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (2 samples, 0.17%)</title><rect x="1874.0" y="731" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1877.04" y="741.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1696.9" y="491" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1699.89" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1626.7" y="203" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1629.67" y="213.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setPrimFieldValues (1 samples, 0.08%)</title><rect x="1838.9" y="699" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1841.93" y="709.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (14 samples, 1.19%)</title><rect x="1269.2" y="555" width="22.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1272.19" y="565.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1858.1" y="603" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1861.08" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNull (6 samples, 0.51%)</title><rect x="1111.2" y="683" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1114.19" y="693.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (1 samples, 0.08%)</title><rect x="1593.2" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1596.16" y="421.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (16 samples, 1.36%)</title><rect x="498.4" y="571" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="501.35" y="581.5" >j..</text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (3 samples, 0.25%)</title><rect x="1688.9" y="443" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1545.3" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1548.28" y="453.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1187956ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1187956ul&gt;::oop_access_barrier(void*) (4 samples, 0.34%)</title><rect x="686.7" y="603" width="6.4" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="689.67" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (450 samples, 38.20%)</title><rect x="1109.6" y="699" width="718.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1112.59" y="709.5" >java/io/ObjectInputStream.readObject0</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (64 samples, 5.43%)</title><rect x="1583.6" y="507" width="102.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1586.58" y="517.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (3 samples, 0.25%)</title><rect x="322.8" y="571" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="325.80" y="581.5" ></text>
+</g>
+<g >
+<title>ip_rcv_finish (1 samples, 0.08%)</title><rect x="1858.1" y="459" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1861.08" y="469.5" ></text>
+</g>
+<g >
+<title>java/lang/String.hashCode (2 samples, 0.17%)</title><rect x="1143.1" y="555" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1146.11" y="565.5" ></text>
+</g>
+<g >
+<title>rcu_process_callbacks (1 samples, 0.08%)</title><rect x="495.2" y="507" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="498.16" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (12 samples, 1.02%)</title><rect x="337.2" y="635" width="19.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="340.16" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDescriptor (3 samples, 0.25%)</title><rect x="1578.8" y="491" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (4 samples, 0.34%)</title><rect x="1636.2" y="171" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1639.25" y="181.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.containsKey (1 samples, 0.08%)</title><rect x="1601.1" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1604.14" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.computeFieldOffsets (5 samples, 0.42%)</title><rect x="1301.1" y="603" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1304.10" y="613.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/Reference.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1468.7" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1471.68" y="581.5" ></text>
+</g>
+<g >
+<title>java/lang/StringLatin1.hashCode (1 samples, 0.08%)</title><rect x="1577.2" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="405.5" ></text>
+</g>
+<g >
+<title>ip_local_deliver_finish (1 samples, 0.08%)</title><rect x="1858.1" y="427" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1861.08" y="437.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;573558ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)3, 573558ul&gt;::oop_access_barrier(oopDesc*, long) (1 samples, 0.08%)</title><rect x="693.1" y="603" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="696.06" y="613.5" ></text>
+</g>
+<g >
+<title>ip_rcv_finish (1 samples, 0.08%)</title><rect x="1058.5" y="395" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1061.52" y="405.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/AbstractSerializationService.serializerFor (3 samples, 0.25%)</title><rect x="231.8" y="827" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="234.83" y="837.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1179.8" y="507" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1182.81" y="517.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/DataSerializableSerializer.readInternal (3 samples, 0.25%)</title><rect x="236.6" y="779" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="789.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1874.0" y="699" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1877.04" y="709.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (8 samples, 0.68%)</title><rect x="1827.8" y="715" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1830.76" y="725.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.checkObjectFieldValueTypes (3 samples, 0.25%)</title><rect x="1513.4" y="523" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1516.36" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (501 samples, 42.53%)</title><rect x="286.1" y="715" width="799.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="289.10" y="725.5" >java/io/ObjectInputStream.readNonProxyDesc</text>
+</g>
+<g >
+<title>java_lang_String::as_unicode_string(oopDesc*, int&amp;, Thread*) (6 samples, 0.51%)</title><rect x="1377.7" y="539" width="9.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="1380.71" y="549.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (122 samples, 10.36%)</title><rect x="1508.6" y="619" width="194.7" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1511.57" y="629.5" >jdk/internal/reflect/..</text>
+</g>
+<g >
+<title>ThreadInVMfromNative::~ThreadInVMfromNative() (9 samples, 0.76%)</title><rect x="932.4" y="619" width="14.4" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="935.44" y="629.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (4 samples, 0.34%)</title><rect x="1878.8" y="843" width="6.4" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1881.83" y="853.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (7 samples, 0.59%)</title><rect x="1258.0" y="507" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1261.01" y="517.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (1 samples, 0.08%)</title><rect x="1765.5" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1768.52" y="581.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="495.2" y="555" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="498.16" y="565.5" ></text>
+</g>
+<g >
+<title>java/lang/String.intern (210 samples, 17.83%)</title><rect x="632.4" y="651" width="335.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="635.41" y="661.5" >java/lang/String.intern</text>
+</g>
+<g >
+<title>JNIHandles::make_local(JNIEnv_*, oopDesc*) (4 samples, 0.34%)</title><rect x="1328.2" y="555" width="6.4" height="15.0" fill="rgb(220,220,66)" rx="2" ry="2" />
+<text  x="1331.23" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.checkDeserialize (1 samples, 0.08%)</title><rect x="1704.9" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1707.87" y="677.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap$TreeNode.getTreeNode (1 samples, 0.08%)</title><rect x="1601.1" y="363" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1604.14" y="373.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/ReferenceQueue.reallyPoll (1 samples, 0.08%)</title><rect x="1084.1" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1087.06" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (5 samples, 0.42%)</title><rect x="1688.9" y="507" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="517.5" ></text>
+</g>
+<g >
+<title>java/util/HashSet.add (3 samples, 0.25%)</title><rect x="1850.1" y="683" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1853.10" y="693.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1289.9" y="507" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1292.93" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readBlockHeader (3 samples, 0.25%)</title><rect x="322.8" y="603" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="325.80" y="613.5" ></text>
+</g>
+<g >
+<title>vmxnet3_poll_rx_only	[vmxnet3] (1 samples, 0.08%)</title><rect x="603.7" y="523" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="606.68" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readFully (1 samples, 0.08%)</title><rect x="1634.7" y="171" width="1.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="181.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout (2 samples, 0.17%)</title><rect x="1599.5" y="443" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1602.54" y="453.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb_internal (1 samples, 0.08%)</title><rect x="1858.1" y="523" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1861.08" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readLong (3 samples, 0.25%)</title><rect x="1152.7" y="603" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1155.68" y="613.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/StreamSerializerAdapter.read (1,028 samples, 87.27%)</title><rect x="236.6" y="827" width="1640.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="837.5" >com/hazelcast/internal/serialization/impl/StreamSerializerAdapter.read</text>
+</g>
+<g >
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.209] (2 samples, 0.17%)</title><rect x="1398.5" y="555" width="3.1" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="1401.46" y="565.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="603.7" y="587" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="606.68" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1414.4" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1417.41" y="613.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5447.invoke (7 samples, 0.59%)</title><rect x="1633.1" y="395" width="11.1" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1636.06" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.invokeReadObject (2 samples, 0.17%)</title><rect x="1859.7" y="715" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1862.68" y="725.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (1 samples, 0.08%)</title><rect x="1684.1" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1687.13" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (3 samples, 0.25%)</title><rect x="322.8" y="587" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="325.80" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (4 samples, 0.34%)</title><rect x="589.3" y="603" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="592.32" y="613.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil$ClassLoaderWeakCache.get (1 samples, 0.08%)</title><rect x="1577.2" y="443" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1580.20" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (1 samples, 0.08%)</title><rect x="1414.4" y="619" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1417.41" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (2 samples, 0.17%)</title><rect x="1805.4" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1808.42" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (36 samples, 3.06%)</title><rect x="356.3" y="651" width="57.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="359.32" y="661.5" >java..</text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="184.0" y="763" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="186.96" y="773.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/map/impl/MapDataSerializerHook$4.createNew (1 samples, 0.08%)</title><rect x="236.6" y="731" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="741.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (19 samples, 1.61%)</title><rect x="1736.8" y="635" width="30.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1739.79" y="645.5" >j..</text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;565366ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)3, 565366ul&gt;::oop_access_barrier(oopDesc*, long) (2 samples, 0.17%)</title><rect x="1382.5" y="523" width="3.2" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1385.50" y="533.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="603.7" y="619" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="606.68" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$GetFieldImpl.readFields (5 samples, 0.42%)</title><rect x="1634.7" y="187" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="197.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (3 samples, 0.25%)</title><rect x="1797.4" y="603" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1800.44" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (9 samples, 0.76%)</title><rect x="396.2" y="603" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="399.21" y="613.5" ></text>
+</g>
+<g >
+<title>vmxnet3_rq_rx_complete	[vmxnet3] (1 samples, 0.08%)</title><rect x="1191.0" y="411" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1193.98" y="421.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1644.2" y="187" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1647.23" y="197.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (996 samples, 84.55%)</title><rect x="284.5" y="747" width="1589.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="287.50" y="757.5" >java/io/ObjectInputStream.readOrdinaryObject</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (3 samples, 0.25%)</title><rect x="1133.5" y="603" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1136.53" y="613.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="523.9" y="539" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="526.89" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1545.3" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1548.28" y="485.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1414.4" y="571" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1417.41" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (13 samples, 1.10%)</title><rect x="1609.1" y="331" width="20.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="341.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (1 samples, 0.08%)</title><rect x="1613.9" y="283" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1616.90" y="293.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (3 samples, 0.25%)</title><rect x="1797.4" y="619" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1800.44" y="629.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/AbstractSerializationService.readObject (1,031 samples, 87.52%)</title><rect x="231.8" y="843" width="1645.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="234.83" y="853.5" >com/hazelcast/internal/serialization/impl/AbstractSerializationService.readObject</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (10 samples, 0.85%)</title><rect x="1270.8" y="539" width="15.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1273.78" y="549.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(Handle, unsigned short*, int, Thread*) (5 samples, 0.42%)</title><rect x="1369.7" y="539" width="8.0" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1372.73" y="549.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (8 samples, 0.68%)</title><rect x="1256.4" y="539" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1259.42" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (5 samples, 0.42%)</title><rect x="177.6" y="843" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="180.57" y="853.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (1 samples, 0.08%)</title><rect x="1582.0" y="411" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1584.99" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setPrimFieldValues (1 samples, 0.08%)</title><rect x="1567.6" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1570.62" y="533.5" ></text>
+</g>
+<g >
+<title>ip_local_deliver (1 samples, 0.08%)</title><rect x="1058.5" y="379" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1061.52" y="389.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.putVal (3 samples, 0.25%)</title><rect x="1850.1" y="651" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1853.10" y="661.5" ></text>
+</g>
+<g >
+<title>sock_def_readable (1 samples, 0.08%)</title><rect x="1058.5" y="283" width="1.6" height="15.0" fill="rgb(239,139,0)" rx="2" ry="2" />
+<text  x="1061.52" y="293.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5448.invoke (5 samples, 0.42%)</title><rect x="1634.7" y="235" width="7.9" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1637.65" y="245.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="1289.9" y="475" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="1292.93" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (5 samples, 0.42%)</title><rect x="1131.9" y="651" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1134.94" y="661.5" ></text>
+</g>
+<g >
+<title>vtable stub (1 samples, 0.08%)</title><rect x="1642.6" y="283" width="1.6" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text  x="1645.63" y="293.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="603.7" y="555" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="606.68" y="565.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (7 samples, 0.59%)</title><rect x="1258.0" y="523" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1261.01" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1625.1" y="203" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1628.08" y="213.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.newBytesFor (1 samples, 0.08%)</title><rect x="1669.8" y="347" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1672.76" y="357.5" ></text>
+</g>
+<g >
+<title>java/lang/String.lastIndexOf (2 samples, 0.17%)</title><rect x="969.2" y="667" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="972.15" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/DataInputStream.readInt (3 samples, 0.25%)</title><rect x="1569.2" y="539" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="549.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (6 samples, 0.51%)</title><rect x="571.8" y="603" width="9.5" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="574.77" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="330.8" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="333.78" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (38 samples, 3.23%)</title><rect x="1586.8" y="475" width="60.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1589.77" y="485.5" >java/..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (7 samples, 0.59%)</title><rect x="1688.9" y="523" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="533.5" ></text>
+</g>
+<g >
+<title>java/lang/StringLatin1.hashCode (54 samples, 4.58%)</title><rect x="973.9" y="635" width="86.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="976.94" y="645.5" >java/lan..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (4 samples, 0.34%)</title><rect x="1588.4" y="459" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1591.37" y="469.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1414.4" y="555" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1417.41" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="334.0" y="555" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="565.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1858.1" y="635" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1861.08" y="645.5" ></text>
+</g>
+<g >
+<title>net_rx_action (1 samples, 0.08%)</title><rect x="603.7" y="539" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="606.68" y="549.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1609.1" y="235" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1612.12" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (2 samples, 0.17%)</title><rect x="1127.1" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1130.15" y="677.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.getNode (2 samples, 0.17%)</title><rect x="1854.9" y="651" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1857.89" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.computeFieldOffsets (3 samples, 0.25%)</title><rect x="605.3" y="667" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="608.28" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (24 samples, 2.04%)</title><rect x="372.3" y="635" width="38.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="375.28" y="645.5" >ja..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.initNonProxy (74 samples, 6.28%)</title><rect x="967.6" y="699" width="118.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="970.56" y="709.5" >java/io/Obje..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1588.4" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1591.37" y="421.5" ></text>
+</g>
+<g >
+<title>jlong_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1056.9" y="619" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1059.93" y="629.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1682.5" y="395" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1685.53" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readBlockHeader (2 samples, 0.17%)</title><rect x="334.0" y="587" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="597.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Constructor.acquireConstructorAccessor (2 samples, 0.17%)</title><rect x="1869.3" y="699" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1872.25" y="709.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/map/impl/MapDataSerializerHook$4.createNew (1 samples, 0.08%)</title><rect x="236.6" y="747" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="757.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (3 samples, 0.25%)</title><rect x="207.9" y="827" width="4.8" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="210.89" y="837.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (1 samples, 0.08%)</title><rect x="1612.3" y="203" width="1.6" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="1615.31" y="213.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout0 (12 samples, 1.02%)</title><rect x="1840.5" y="699" width="19.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1843.53" y="709.5" ></text>
+</g>
+<g >
+<title>Handle::Handle(Thread*, oopDesc*) (2 samples, 0.17%)</title><rect x="662.7" y="619" width="3.2" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="665.73" y="629.5" ></text>
+</g>
+<g >
+<title>ip_rcv (1 samples, 0.08%)</title><rect x="1858.1" y="475" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1861.08" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (33 samples, 2.80%)</title><rect x="1594.8" y="459" width="52.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1597.75" y="469.5" >java..</text>
+</g>
+<g >
+<title>G1CollectedHeap::deduplicate_string(oopDesc*) (1 samples, 0.08%)</title><rect x="771.3" y="587" width="1.6" height="15.0" fill="rgb(216,216,65)" rx="2" ry="2" />
+<text  x="774.26" y="597.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="522.3" y="443" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="525.29" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setPrimFieldValues (1 samples, 0.08%)</title><rect x="1475.1" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1478.06" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1644.2" y="219" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="229.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readFully (9 samples, 0.76%)</title><rect x="1524.5" y="539" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1527.53" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readFields (1 samples, 0.08%)</title><rect x="1701.7" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="421.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (1 samples, 0.08%)</title><rect x="1577.2" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="437.5" ></text>
+</g>
+<g >
+<title>java/lang/String.regionMatches (4 samples, 0.34%)</title><rect x="1425.6" y="603" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1428.59" y="613.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb (1 samples, 0.08%)</title><rect x="523.9" y="459" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="526.89" y="469.5" ></text>
+</g>
+<g >
+<title>java/lang/Character.isLowerCase (1 samples, 0.08%)</title><rect x="297.3" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="300.27" y="661.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1802.2" y="619" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1805.22" y="629.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (8 samples, 0.68%)</title><rect x="1666.6" y="379" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1669.57" y="389.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Method.invoke (5 samples, 0.42%)</title><rect x="1634.7" y="267" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1580.4" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1583.39" y="405.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Constructor.acquireConstructorAccessor (9 samples, 0.76%)</title><rect x="1709.7" y="635" width="14.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1712.66" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (1 samples, 0.08%)</title><rect x="1545.3" y="491" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1548.28" y="501.5" ></text>
+</g>
+<g >
+<title>_raw_spin_unlock_irqrestore (1 samples, 0.08%)</title><rect x="495.2" y="443" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="498.16" y="453.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="522.3" y="523" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="525.29" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1574.0" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1577.01" y="533.5" ></text>
+</g>
+<g >
+<title>jbyte_arraycopy (1 samples, 0.08%)</title><rect x="1877.2" y="843" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1880.23" y="853.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (3 samples, 0.25%)</title><rect x="1594.8" y="443" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1597.75" y="453.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (1 samples, 0.08%)</title><rect x="1701.7" y="379" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="389.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.containsKey (2 samples, 0.17%)</title><rect x="1854.9" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1857.89" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (37 samples, 3.14%)</title><rect x="1210.1" y="555" width="59.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1213.14" y="565.5" >java/..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (2 samples, 0.17%)</title><rect x="1644.2" y="283" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="293.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (2 samples, 0.17%)</title><rect x="334.0" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.newInstance (13 samples, 1.10%)</title><rect x="1706.5" y="667" width="20.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1709.47" y="677.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (10 samples, 0.85%)</title><rect x="1270.8" y="523" width="15.9" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1273.78" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (2 samples, 0.17%)</title><rect x="1727.2" y="683" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1730.22" y="693.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="523.9" y="571" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="526.89" y="581.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1639.4" y="59" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1642.44" y="69.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="332.4" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="335.38" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (5 samples, 0.42%)</title><rect x="1131.9" y="619" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1134.94" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (5 samples, 0.42%)</title><rect x="1538.9" y="539" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1541.90" y="549.5" ></text>
+</g>
+<g >
+<title>tcp_v4_rcv (1 samples, 0.08%)</title><rect x="1858.1" y="411" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1861.08" y="421.5" ></text>
+</g>
+<g >
+<title>_raw_spin_unlock_irqrestore (1 samples, 0.08%)</title><rect x="1058.5" y="235" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1061.52" y="245.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (2 samples, 0.17%)</title><rect x="1621.9" y="203" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1624.88" y="213.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.grow (9 samples, 0.76%)</title><rect x="1808.6" y="651" width="14.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1811.61" y="661.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Method.invoke (28 samples, 2.38%)</title><rect x="1602.7" y="427" width="44.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1605.73" y="437.5" >jav..</text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedSerializationConstructorAccessor10120.newInstance (2 samples, 0.17%)</title><rect x="1724.0" y="635" width="3.2" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1727.02" y="645.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1826.2" y="651" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1829.16" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (487 samples, 41.34%)</title><rect x="1085.7" y="731" width="777.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1088.65" y="741.5" >java/io/ObjectInputStream.readSerialData</text>
+</g>
+<g >
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.08%)</title><rect x="1701.7" y="459" width="1.6" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1704.68" y="469.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Method.invoke (130 samples, 11.04%)</title><rect x="1495.8" y="635" width="207.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1498.81" y="645.5" >java/lang/reflect/Metho..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1183.0" y="539" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1186.01" y="549.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (121 samples, 10.27%)</title><rect x="10.0" y="859" width="193.1" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="13.00" y="869.5" >com/hazelcast/interna..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (1 samples, 0.08%)</title><rect x="1125.6" y="667" width="1.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1128.55" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1641.0" y="75" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1644.04" y="85.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (2 samples, 0.17%)</title><rect x="1604.3" y="347" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1607.33" y="357.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.newInstance (6 samples, 0.51%)</title><rect x="1864.5" y="731" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1867.47" y="741.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1826.2" y="635" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1829.16" y="645.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/JavaDefaultSerializers$JavaSerializer.read (1,025 samples, 87.01%)</title><rect x="241.4" y="811" width="1635.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="244.41" y="821.5" >com/hazelcast/internal/serialization/impl/JavaDefaultSerializers$JavaSerializer.read</text>
+</g>
+<g >
+<title>java/io/ObjectStreamField.&lt;init&gt; (66 samples, 5.60%)</title><rect x="1309.1" y="603" width="105.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1312.08" y="613.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1058.5" y="539" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1061.52" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1644.2" y="235" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.readNonProxy (168 samples, 14.26%)</title><rect x="1146.3" y="619" width="268.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1149.30" y="629.5" >java/io/ObjectStreamClass.read..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readUTF (1 samples, 0.08%)</title><rect x="370.7" y="619" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="373.68" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout0 (2 samples, 0.17%)</title><rect x="1599.5" y="427" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1602.54" y="437.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/WeakReference.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1468.7" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1471.68" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (8 samples, 0.68%)</title><rect x="1546.9" y="555" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1549.88" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readShort (1 samples, 0.08%)</title><rect x="1157.5" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1160.47" y="613.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (1 samples, 0.08%)</title><rect x="1178.2" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1181.22" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (2 samples, 0.17%)</title><rect x="410.6" y="635" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="413.58" y="645.5" ></text>
+</g>
+<g >
+<title>read_tsc (1 samples, 0.08%)</title><rect x="523.9" y="379" width="1.6" height="15.0" fill="rgb(242,142,0)" rx="2" ry="2" />
+<text  x="526.89" y="389.5" ></text>
+</g>
+<g >
+<title>netif_receive_skb_internal (1 samples, 0.08%)</title><rect x="1058.5" y="459" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1061.52" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readInt (4 samples, 0.34%)</title><rect x="1569.2" y="571" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="581.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (8 samples, 0.68%)</title><rect x="1666.6" y="411" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1669.57" y="421.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (27 samples, 2.29%)</title><rect x="1604.3" y="411" width="43.1" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1607.33" y="421.5" >jdk..</text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (4 samples, 0.34%)</title><rect x="1139.9" y="571" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1142.92" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1151.1" y="555" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="565.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5448.invoke (1 samples, 0.08%)</title><rect x="1701.7" y="443" width="1.6" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1704.68" y="453.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (3 samples, 0.25%)</title><rect x="349.9" y="587" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="352.93" y="597.5" ></text>
+</g>
+<g >
+<title>StringTable::intern(Handle, unsigned short*, int, Thread*) (26 samples, 2.21%)</title><rect x="828.7" y="603" width="41.5" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="831.71" y="613.5" >Str..</text>
+</g>
+<g >
+<title>netif_receive_skb (1 samples, 0.08%)</title><rect x="1191.0" y="395" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1193.98" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (1 samples, 0.08%)</title><rect x="1700.1" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1703.08" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject (999 samples, 84.80%)</title><rect x="282.9" y="779" width="1594.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="285.90" y="789.5" >java/io/ObjectInputStream.readObject</text>
+</g>
+<g >
+<title>HandleMark::pop_and_restore() (1 samples, 0.08%)</title><rect x="665.9" y="619" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="668.93" y="629.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (21 samples, 1.78%)</title><rect x="536.7" y="587" width="33.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="539.66" y="597.5" >co..</text>
+</g>
+<g >
+<title>java/lang/reflect/Constructor.newInstance (6 samples, 0.51%)</title><rect x="1864.5" y="715" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1867.47" y="725.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readLong (2 samples, 0.17%)</title><rect x="1644.2" y="363" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.peek (1 samples, 0.08%)</title><rect x="1585.2" y="443" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1588.18" y="453.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/ReferenceQueue.poll (1 samples, 0.08%)</title><rect x="1084.1" y="651" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1087.06" y="661.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.putCharsSB (1 samples, 0.08%)</title><rect x="1692.1" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1695.11" y="437.5" ></text>
+</g>
+<g >
+<title>java/lang/Character.isLowerCase (1 samples, 0.08%)</title><rect x="1590.0" y="379" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1592.97" y="389.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.loadClass (4 samples, 0.34%)</title><rect x="1139.9" y="619" width="6.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1142.92" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDescriptor (418 samples, 35.48%)</title><rect x="300.5" y="699" width="667.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="303.46" y="709.5" >java/io/ObjectInputStream.readClassDescriptor</text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.loadClass (1 samples, 0.08%)</title><rect x="1590.0" y="411" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1592.97" y="421.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;565366ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)3, 565366ul&gt;::oop_access_barrier(oopDesc*, long) (1 samples, 0.08%)</title><rect x="1363.3" y="523" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1366.34" y="533.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1058.5" y="603" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1061.52" y="613.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil$ClassLoaderWeakCache.get (6 samples, 0.51%)</title><rect x="287.7" y="651" width="9.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="290.69" y="661.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1858.1" y="683" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1861.08" y="693.5" ></text>
+</g>
+<g >
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.209] (2 samples, 0.17%)</title><rect x="1409.6" y="571" width="3.2" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="1412.63" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (1 samples, 0.08%)</title><rect x="1641.0" y="123" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1644.04" y="133.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="603.7" y="571" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="606.68" y="581.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5449.invoke (2 samples, 0.17%)</title><rect x="1644.2" y="395" width="3.2" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1647.23" y="405.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1580.4" y="379" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1583.39" y="389.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (5 samples, 0.42%)</title><rect x="1634.7" y="251" width="7.9" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1637.65" y="261.5" ></text>
+</g>
+<g >
+<title>java/lang/String.hashCode (54 samples, 4.58%)</title><rect x="973.9" y="651" width="86.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="976.94" y="661.5" >java/lan..</text>
+</g>
+<g >
+<title>java/lang/CharacterDataLatin1.isOtherLowercase (1 samples, 0.08%)</title><rect x="297.3" y="619" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="300.27" y="629.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="522.3" y="491" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="525.29" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (1 samples, 0.08%)</title><rect x="1701.7" y="507" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="517.5" ></text>
+</g>
+<g >
+<title>java/math/BigInteger.readObject (1 samples, 0.08%)</title><rect x="1701.7" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDescriptor (2 samples, 0.17%)</title><rect x="1610.7" y="283" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="293.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (23 samples, 1.95%)</title><rect x="1647.4" y="459" width="36.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1650.42" y="469.5" >ja..</text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="184.0" y="747" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="186.96" y="757.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5446.invoke (89 samples, 7.56%)</title><rect x="1559.6" y="603" width="142.1" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1562.64" y="613.5" >jdk/internal/re..</text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (3 samples, 0.25%)</title><rect x="231.8" y="811" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="234.83" y="821.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1682.5" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1685.53" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (3 samples, 0.25%)</title><rect x="1569.2" y="507" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1572.22" y="517.5" ></text>
+</g>
+<g >
+<title>java/util/HashMap.resize (1 samples, 0.08%)</title><rect x="1492.6" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1495.61" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (1 samples, 0.08%)</title><rect x="1151.1" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1154.09" y="581.5" ></text>
+</g>
+<g >
+<title>jbyte_arraycopy (1 samples, 0.08%)</title><rect x="570.2" y="603" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="573.17" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (6 samples, 0.51%)</title><rect x="1291.5" y="571" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1294.53" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (208 samples, 17.66%)</title><rect x="1139.9" y="651" width="332.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1142.92" y="661.5" >java/io/ObjectInputStream.readNonProxy..</text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1858.1" y="667" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1861.08" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (146 samples, 12.39%)</title><rect x="1471.9" y="667" width="233.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1474.87" y="677.5" >java/io/ObjectInputStream...</text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedSerializationConstructorAccessor10119.newInstance (1 samples, 0.08%)</title><rect x="1872.4" y="699" width="1.6" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1875.44" y="709.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb_core (1 samples, 0.08%)</title><rect x="1858.1" y="491" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1861.08" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$WeakClassKey.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1082.5" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1085.46" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNull (4 samples, 0.34%)</title><rect x="1540.5" y="523" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1543.49" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (35 samples, 2.97%)</title><rect x="525.5" y="619" width="55.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="528.48" y="629.5" >java..</text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="184.0" y="779" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="186.96" y="789.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1191.0" y="539" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1193.98" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (1 samples, 0.08%)</title><rect x="1610.7" y="235" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readUTF (120 samples, 10.19%)</title><rect x="413.8" y="667" width="191.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="416.77" y="677.5" >java/io/ObjectInputSt..</text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (1 samples, 0.08%)</title><rect x="1267.6" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1270.59" y="485.5" ></text>
+</g>
+<g >
+<title>jbyte_arraycopy (1 samples, 0.08%)</title><rect x="185.6" y="843" width="1.5" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="188.55" y="853.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (501 samples, 42.53%)</title><rect x="286.1" y="731" width="799.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="289.10" y="741.5" >java/io/ObjectInputStream.readClassDesc</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readUTF (66 samples, 5.60%)</title><rect x="1195.8" y="603" width="105.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1198.77" y="613.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (1 samples, 0.08%)</title><rect x="1701.7" y="523" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.classNamesEqual (8 samples, 0.68%)</title><rect x="1419.2" y="619" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1422.20" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (6 samples, 0.51%)</title><rect x="1618.7" y="251" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1621.69" y="261.5" ></text>
+</g>
+<g >
+<title>__tls_get_addr (2 samples, 0.17%)</title><rect x="922.9" y="587" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="925.87" y="597.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (1 samples, 0.08%)</title><rect x="1470.3" y="603" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1473.27" y="613.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.inflate (2 samples, 0.17%)</title><rect x="1671.4" y="331" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1674.36" y="341.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb_core (1 samples, 0.08%)</title><rect x="1191.0" y="347" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1193.98" y="357.5" ></text>
+</g>
+<g >
+<title>jlong_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1784.7" y="587" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1787.67" y="597.5" ></text>
+</g>
+<g >
+<title>java/lang/StringLatin1.hashCode (2 samples, 0.17%)</title><rect x="294.1" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="297.07" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getClassDataLayout0 (7 samples, 0.59%)</title><rect x="1484.6" y="635" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1487.63" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.peek (1 samples, 0.08%)</title><rect x="1585.2" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1588.18" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="1874.0" y="683" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1877.04" y="693.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (2 samples, 0.17%)</title><rect x="1569.2" y="475" width="3.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1572.22" y="485.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (3 samples, 0.25%)</title><rect x="598.9" y="603" width="4.8" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="601.90" y="613.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (2 samples, 0.17%)</title><rect x="1671.4" y="347" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1674.36" y="357.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (21 samples, 1.78%)</title><rect x="536.7" y="603" width="33.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="539.66" y="613.5" >ja..</text>
+</g>
+<g >
+<title>JVM_InternString (51 samples, 4.33%)</title><rect x="1321.9" y="571" width="81.3" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text  x="1324.85" y="581.5" >JVM_Int..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.processQueue (1 samples, 0.08%)</title><rect x="1084.1" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1087.06" y="677.5" ></text>
+</g>
+<g >
+<title>java/util/HashSet.contains (1 samples, 0.08%)</title><rect x="1601.1" y="411" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1604.14" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readArray (4 samples, 0.34%)</title><rect x="1636.2" y="155" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1639.25" y="165.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="1679.3" y="411" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1682.34" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.checkObjectFieldValueTypes (4 samples, 0.34%)</title><rect x="1088.8" y="683" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1091.85" y="693.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (1 samples, 0.08%)</title><rect x="1609.1" y="299" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="309.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.tryPrimitiveClass (1 samples, 0.08%)</title><rect x="297.3" y="667" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="300.27" y="677.5" ></text>
+</g>
+<g >
+<title>JvmtiVMObjectAllocEventCollector::~JvmtiVMObjectAllocEventCollector() (1 samples, 0.08%)</title><rect x="677.1" y="619" width="1.6" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="680.10" y="629.5" ></text>
+</g>
+<g >
+<title>__wake_up_sync_key (1 samples, 0.08%)</title><rect x="1058.5" y="267" width="1.6" height="15.0" fill="rgb(223,123,0)" rx="2" ry="2" />
+<text  x="1061.52" y="277.5" ></text>
+</g>
+<g >
+<title>Java_java_lang_String_intern (1 samples, 0.08%)</title><rect x="961.2" y="635" width="1.6" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text  x="964.17" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (6 samples, 0.51%)</title><rect x="1634.7" y="331" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="341.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.tryLoadClass (4 samples, 0.34%)</title><rect x="1139.9" y="603" width="6.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1142.92" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readLong (2 samples, 0.17%)</title><rect x="329.2" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="332.19" y="677.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1289.9" y="459" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1292.93" y="469.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (2 samples, 0.17%)</title><rect x="1621.9" y="187" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1624.88" y="197.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (4 samples, 0.34%)</title><rect x="1760.7" y="587" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1763.73" y="597.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;565366ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)3, 565366ul&gt;::oop_access_barrier(oopDesc*, long) (10 samples, 0.85%)</title><rect x="755.3" y="587" width="16.0" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="758.30" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (2 samples, 0.17%)</title><rect x="1578.8" y="427" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDescriptor (1 samples, 0.08%)</title><rect x="1591.6" y="427" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1594.56" y="437.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.resolveClass (1 samples, 0.08%)</title><rect x="1577.2" y="491" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1580.20" y="501.5" ></text>
+</g>
+<g >
+<title>selinux_socket_sock_rcv_skb (1 samples, 0.08%)</title><rect x="1858.1" y="347" width="1.6" height="15.0" fill="rgb(240,140,0)" rx="2" ry="2" />
+<text  x="1861.08" y="357.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (9 samples, 0.76%)</title><rect x="340.4" y="603" width="14.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="343.36" y="613.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5446.invoke (18 samples, 1.53%)</title><rect x="1604.3" y="395" width="28.8" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1607.33" y="405.5" >j..</text>
+</g>
+<g >
+<title>java/util/HashMap.put (3 samples, 0.25%)</title><rect x="1850.1" y="667" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1853.10" y="677.5" ></text>
+</g>
+<g >
+<title>com/sun/org/apache/xerces/internal/jaxp/datatype/XMLGregorianCalendarImpl.readObject (31 samples, 2.63%)</title><rect x="1510.2" y="587" width="49.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1513.17" y="597.5" >com..</text>
+</g>
+<g >
+<title>StringTable::do_intern(Handle, unsigned short*, int, unsigned long, Thread*) (80 samples, 6.79%)</title><rect x="701.0" y="603" width="127.7" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="704.04" y="613.5" >StringTable::..</text>
+</g>
+<g >
+<title>JvmtiVMObjectAllocEventCollector::JvmtiVMObjectAllocEventCollector() (2 samples, 0.17%)</title><rect x="1404.8" y="571" width="3.2" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="1407.84" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (5 samples, 0.42%)</title><rect x="1618.7" y="235" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1621.69" y="245.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (16 samples, 1.36%)</title><rect x="1767.1" y="635" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1770.11" y="645.5" >j..</text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (1 samples, 0.08%)</title><rect x="1178.2" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1181.22" y="469.5" ></text>
+</g>
+<g >
+<title>jlong_disjoint_arraycopy (5 samples, 0.42%)</title><rect x="562.2" y="571" width="8.0" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="565.19" y="581.5" ></text>
+</g>
+<g >
+<title>java/lang/String.hashCode (16 samples, 1.36%)</title><rect x="1433.6" y="587" width="25.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1436.57" y="597.5" >j..</text>
+</g>
+<g >
+<title>java/lang/String.intern (63 samples, 5.35%)</title><rect x="1313.9" y="587" width="100.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1316.87" y="597.5" >java/lang/..</text>
+</g>
+<g >
+<title>java/util/HashMap.put (2 samples, 0.17%)</title><rect x="1491.0" y="603" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1494.02" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (59 samples, 5.01%)</title><rect x="1197.4" y="571" width="94.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1200.37" y="581.5" >java/io/O..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readSerialData (65 samples, 5.52%)</title><rect x="1583.6" y="523" width="103.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1586.58" y="533.5" >java/io/Ob..</text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (8 samples, 0.68%)</title><rect x="1666.6" y="395" width="12.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1669.57" y="405.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUnsignedShort (8 samples, 0.68%)</title><rect x="1792.6" y="651" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1795.65" y="661.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (17 samples, 1.44%)</title><rect x="496.8" y="603" width="27.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="499.76" y="613.5" >j..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readInt (2 samples, 0.17%)</title><rect x="1637.8" y="107" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1640.84" y="117.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (3 samples, 0.25%)</title><rect x="1175.0" y="507" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1178.03" y="517.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.classNamesEqual (2 samples, 0.17%)</title><rect x="969.2" y="683" width="3.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="972.15" y="693.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (8 samples, 0.68%)</title><rect x="1792.6" y="635" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1795.65" y="645.5" ></text>
+</g>
+<g >
+<title>java/lang/String.hashCode (2 samples, 0.17%)</title><rect x="294.1" y="619" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="297.07" y="629.5" ></text>
+</g>
+<g >
+<title>sk_filter_trim_cap (1 samples, 0.08%)</title><rect x="1858.1" y="379" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1861.08" y="389.5" ></text>
+</g>
+<g >
+<title>tcp_data_queue (1 samples, 0.08%)</title><rect x="1058.5" y="299" width="1.6" height="15.0" fill="rgb(237,137,0)" rx="2" ry="2" />
+<text  x="1061.52" y="309.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (8 samples, 0.68%)</title><rect x="397.8" y="587" width="12.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="400.81" y="597.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="1826.2" y="667" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="1829.16" y="677.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (2 samples, 0.17%)</title><rect x="1679.3" y="395" width="3.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1682.34" y="405.5" ></text>
+</g>
+<g >
+<title>java/math/BigDecimal.readObject (1 samples, 0.08%)</title><rect x="1701.7" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflector.setObjFieldValues (7 samples, 0.59%)</title><rect x="1827.8" y="683" width="11.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1830.76" y="693.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="1826.2" y="603" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="1829.16" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1609.1" y="267" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="277.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="1058.5" y="587" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="1061.52" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultCheckFieldValues (3 samples, 0.25%)</title><rect x="1513.4" y="555" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1516.36" y="565.5" ></text>
+</g>
+<g >
+<title>java/math/BigDecimal.readObject (7 samples, 0.59%)</title><rect x="1633.1" y="379" width="11.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1636.06" y="389.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (12 samples, 1.02%)</title><rect x="337.2" y="619" width="19.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="340.16" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (60 samples, 5.09%)</title><rect x="1730.4" y="683" width="95.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1733.41" y="693.5" >java/io/O..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getSerialVersionUID (1 samples, 0.08%)</title><rect x="1080.9" y="683" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1083.87" y="693.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1645.8" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1648.82" y="261.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1593.2" y="363" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1596.16" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (22 samples, 1.87%)</title><rect x="1647.4" y="443" width="35.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1650.42" y="453.5" >ja..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.readNonProxy (417 samples, 35.40%)</title><rect x="302.1" y="683" width="665.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="305.05" y="693.5" >java/io/ObjectStreamClass.readNonProxy</text>
+</g>
+<g >
+<title>jdk/internal/reflect/GeneratedMethodAccessor5445.invoke (32 samples, 2.72%)</title><rect x="1508.6" y="603" width="51.0" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1511.57" y="613.5" >jdk/..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.getReflector (1 samples, 0.08%)</title><rect x="1615.5" y="267" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1618.50" y="277.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (1 samples, 0.08%)</title><rect x="389.8" y="571" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="392.83" y="581.5" ></text>
+</g>
+<g >
+<title>net_rx_action (1 samples, 0.08%)</title><rect x="1191.0" y="443" width="1.6" height="15.0" fill="rgb(244,144,0)" rx="2" ry="2" />
+<text  x="1193.98" y="453.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.resolveClass (8 samples, 0.68%)</title><rect x="286.1" y="699" width="12.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="289.10" y="709.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.readNonProxy (3 samples, 0.25%)</title><rect x="1578.8" y="475" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="485.5" ></text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (1 samples, 0.08%)</title><rect x="1634.7" y="107" width="1.5" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1637.65" y="117.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.readNonProxy (2 samples, 0.17%)</title><rect x="1610.7" y="267" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="277.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="603.7" y="603" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="606.68" y="613.5" ></text>
+</g>
+<g >
+<title>apic_timer_interrupt (1 samples, 0.08%)</title><rect x="495.2" y="603" width="1.6" height="15.0" fill="rgb(228,128,0)" rx="2" ry="2" />
+<text  x="498.16" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (11 samples, 0.93%)</title><rect x="1770.3" y="619" width="17.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1773.31" y="629.5" ></text>
+</g>
+<g >
+<title>JvmtiVMObjectAllocEventCollector::JvmtiVMObjectAllocEventCollector() (1 samples, 0.08%)</title><rect x="962.8" y="635" width="1.6" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text  x="965.77" y="645.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="523.9" y="603" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="526.89" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (1 samples, 0.08%)</title><rect x="1613.9" y="267" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1616.90" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (79 samples, 6.71%)</title><rect x="1575.6" y="555" width="126.1" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1578.60" y="565.5" >java/io/Objec..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1641.0" y="59" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1644.04" y="69.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (7 samples, 0.59%)</title><rect x="1617.1" y="299" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1620.10" y="309.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.skipCustomData (5 samples, 0.42%)</title><rect x="1476.7" y="651" width="7.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1479.66" y="661.5" ></text>
+</g>
+<g >
+<title>java/lang/Character.isLowerCase (1 samples, 0.08%)</title><rect x="297.3" y="635" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="300.27" y="645.5" ></text>
+</g>
+<g >
+<title>java/lang/reflect/Constructor.newInstance (13 samples, 1.10%)</title><rect x="1706.5" y="651" width="20.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1709.47" y="661.5" ></text>
+</g>
+<g >
+<title>smp_apic_timer_interrupt (1 samples, 0.08%)</title><rect x="495.2" y="587" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="498.16" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readByte (7 samples, 0.59%)</title><rect x="316.4" y="667" width="11.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="319.42" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (1 samples, 0.08%)</title><rect x="1610.7" y="203" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="213.5" ></text>
+</g>
+<g >
+<title>__irqentry_text_start (1 samples, 0.08%)</title><rect x="523.9" y="587" width="1.6" height="15.0" fill="rgb(225,125,0)" rx="2" ry="2" />
+<text  x="526.89" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (6 samples, 0.51%)</title><rect x="1634.7" y="315" width="9.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1637.65" y="325.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/map/impl/operation/PutBackupOperation.readInternal (2 samples, 0.17%)</title><rect x="238.2" y="747" width="3.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="241.22" y="757.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.peekByte (1 samples, 0.08%)</title><rect x="1585.2" y="475" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1588.18" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readObject0 (1 samples, 0.08%)</title><rect x="1701.7" y="539" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="549.5" ></text>
+</g>
+<g >
+<title>java/lang/StringBuilder.append (5 samples, 0.42%)</title><rect x="1759.1" y="619" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1762.13" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1299.5" y="539" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1302.51" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="1637.8" y="75" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1640.84" y="85.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.get (6 samples, 0.51%)</title><rect x="287.7" y="635" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="290.69" y="645.5" ></text>
+</g>
+<g >
+<title>Handle::Handle(Thread*, oopDesc*) (6 samples, 0.51%)</title><rect x="772.9" y="587" width="9.5" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="775.85" y="597.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/Reflection.isSubclassOf (9 samples, 0.76%)</title><rect x="1709.7" y="603" width="14.3" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1712.66" y="613.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1637.8" y="91" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1640.84" y="101.5" ></text>
+</g>
+<g >
+<title>java/io/DataInputStream.readLong (2 samples, 0.17%)</title><rect x="1644.2" y="331" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="341.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultReadFields (1 samples, 0.08%)</title><rect x="1562.8" y="555" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1565.84" y="565.5" ></text>
+</g>
+<g >
+<title>vmxnet3_rq_rx_complete	[vmxnet3] (1 samples, 0.08%)</title><rect x="1058.5" y="491" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1061.52" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (1 samples, 0.08%)</title><rect x="1574.0" y="539" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1577.01" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readUTF (2 samples, 0.17%)</title><rect x="1578.8" y="459" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1679.3" y="427" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1682.34" y="437.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (2 samples, 0.17%)</title><rect x="1183.0" y="523" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1186.01" y="533.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb (1 samples, 0.08%)</title><rect x="1191.0" y="363" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1193.98" y="373.5" ></text>
+</g>
+<g >
+<title>JVM_InternString (1 samples, 0.08%)</title><rect x="1582.0" y="427" width="1.6" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text  x="1584.99" y="437.5" ></text>
+</g>
+<g >
+<title>__tls_get_addr (1 samples, 0.08%)</title><rect x="1385.7" y="523" width="1.6" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1388.69" y="533.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/ClassLoaderUtil.tryLoadClass (7 samples, 0.59%)</title><rect x="286.1" y="667" width="11.2" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="289.10" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.defaultSetFieldValues (1 samples, 0.08%)</title><rect x="1628.3" y="299" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1631.27" y="309.5" ></text>
+</g>
+<g >
+<title>vmxnet3_poll_rx_only	[vmxnet3] (1 samples, 0.08%)</title><rect x="523.9" y="491" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="526.89" y="501.5" ></text>
+</g>
+<g >
+<title>getnstimeofday64 (1 samples, 0.08%)</title><rect x="523.9" y="411" width="1.6" height="15.0" fill="rgb(238,138,0)" rx="2" ry="2" />
+<text  x="526.89" y="421.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (14 samples, 1.19%)</title><rect x="334.0" y="651" width="22.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="661.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamField.&lt;init&gt; (224 samples, 19.02%)</title><rect x="610.1" y="667" width="357.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="613.07" y="677.5" >java/io/ObjectStreamField.&lt;init&gt;</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass$FieldReflectorKey.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1463.9" y="587" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1466.89" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readUTF (1 samples, 0.08%)</title><rect x="1610.7" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1613.71" y="261.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.appendChars (1 samples, 0.08%)</title><rect x="389.8" y="555" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="392.83" y="565.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readByte (2 samples, 0.17%)</title><rect x="1159.1" y="571" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1162.07" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (37 samples, 3.14%)</title><rect x="1733.6" y="651" width="59.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1736.60" y="661.5" >java/..</text>
+</g>
+<g >
+<title>StringTable::intern(oopDesc*, Thread*) (159 samples, 13.50%)</title><rect x="678.7" y="619" width="253.7" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text  x="681.69" y="629.5" >StringTable::intern(oopDesc*..</text>
+</g>
+<g >
+<title>_init (1 samples, 0.08%)</title><rect x="1412.8" y="571" width="1.6" height="15.0" fill="rgb(236,103,103)" rx="2" ry="2" />
+<text  x="1415.82" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readShort (1 samples, 0.08%)</title><rect x="332.4" y="667" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="335.38" y="677.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.inflate (1 samples, 0.08%)</title><rect x="1669.8" y="363" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1672.76" y="373.5" ></text>
+</g>
+<g >
+<title>java/lang/Character.isLowerCase (1 samples, 0.08%)</title><rect x="1590.0" y="363" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1592.97" y="373.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readTypeString (50 samples, 4.24%)</title><rect x="334.0" y="667" width="79.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="336.97" y="677.5" >java/io..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$GetFieldImpl.readFields (1 samples, 0.08%)</title><rect x="1701.7" y="395" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1704.68" y="405.5" ></text>
+</g>
+<g >
+<title>__do_softirq (1 samples, 0.08%)</title><rect x="523.9" y="523" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="526.89" y="533.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readString (6 samples, 0.51%)</title><rect x="1618.7" y="267" width="9.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1621.69" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.setPrimFieldValues (1 samples, 0.08%)</title><rect x="1628.3" y="283" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1631.27" y="293.5" ></text>
+</g>
+<g >
+<title>itable stub (5 samples, 0.42%)</title><rect x="1716.0" y="587" width="8.0" height="15.0" fill="rgb(237,104,104)" rx="2" ry="2" />
+<text  x="1719.04" y="597.5" ></text>
+</g>
+<g >
+<title>__getnstimeofday64 (1 samples, 0.08%)</title><rect x="523.9" y="395" width="1.6" height="15.0" fill="rgb(227,127,0)" rx="2" ry="2" />
+<text  x="526.89" y="405.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1151.1" y="491" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1154.09" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.read (3 samples, 0.25%)</title><rect x="322.8" y="635" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="325.80" y="645.5" ></text>
+</g>
+<g >
+<title>irq_exit (1 samples, 0.08%)</title><rect x="495.2" y="571" width="1.6" height="15.0" fill="rgb(233,133,0)" rx="2" ry="2" />
+<text  x="498.16" y="581.5" ></text>
+</g>
+<g >
+<title>jdk/internal/reflect/ReflectionFactory.newConstructorAccessor (2 samples, 0.17%)</title><rect x="1869.3" y="683" width="3.1" height="15.0" fill="rgb(86,233,86)" rx="2" ry="2" />
+<text  x="1872.25" y="693.5" ></text>
+</g>
+<g >
+<title>__wake_up (1 samples, 0.08%)</title><rect x="495.2" y="475" width="1.6" height="15.0" fill="rgb(223,123,0)" rx="2" ry="2" />
+<text  x="498.16" y="485.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (5 samples, 0.42%)</title><rect x="1609.1" y="315" width="8.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="325.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readClassDesc (213 samples, 18.08%)</title><rect x="1131.9" y="667" width="340.0" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1134.94" y="677.5" >java/io/ObjectInputStream.readClassDesc</text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (2 samples, 0.17%)</title><rect x="1286.7" y="539" width="3.2" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1289.74" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readNonProxyDesc (4 samples, 0.34%)</title><rect x="1577.2" y="507" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1580.20" y="517.5" ></text>
+</g>
+<g >
+<title>resource_allocate_bytes(unsigned long, AllocFailStrategy::AllocFailEnum) (3 samples, 0.25%)</title><rect x="926.1" y="587" width="4.7" height="15.0" fill="rgb(214,214,64)" rx="2" ry="2" />
+<text  x="929.06" y="597.5" ></text>
+</g>
+<g >
+<title>java/util/ArrayList.readObject (18 samples, 1.53%)</title><rect x="1604.3" y="379" width="28.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1607.33" y="389.5" >j..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readLong (3 samples, 0.25%)</title><rect x="1152.7" y="587" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1155.68" y="597.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamField.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1582.0" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1584.99" y="469.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/ConcurrentHashMap.remove (1 samples, 0.08%)</title><rect x="1615.5" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1618.50" y="261.5" ></text>
+</g>
+<g >
+<title>call_softirq (1 samples, 0.08%)</title><rect x="495.2" y="539" width="1.6" height="15.0" fill="rgb(221,121,0)" rx="2" ry="2" />
+<text  x="498.16" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.checkObjFieldValueTypes (3 samples, 0.25%)</title><rect x="1513.4" y="539" width="4.7" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1516.36" y="549.5" ></text>
+</g>
+<g >
+<title>java/lang/AbstractStringBuilder.append (3 samples, 0.25%)</title><rect x="1688.9" y="459" width="4.8" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1691.91" y="469.5" ></text>
+</g>
+<g >
+<title>HandleMark::pop_and_restore() (1 samples, 0.08%)</title><rect x="1326.6" y="555" width="1.6" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text  x="1329.64" y="565.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/DataSerializableSerializer.read (3 samples, 0.25%)</title><rect x="236.6" y="811" width="4.8" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="239.62" y="821.5" ></text>
+</g>
+<g >
+<title>java_lang_String::as_unicode_string(oopDesc*, int&amp;, Thread*) (1 samples, 0.08%)</title><rect x="1401.6" y="555" width="1.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="1404.65" y="565.5" ></text>
+</g>
+<g >
+<title>java_lang_String::as_unicode_string(oopDesc*, int&amp;, Thread*) (38 samples, 3.23%)</title><rect x="870.2" y="603" width="60.6" height="15.0" fill="rgb(199,199,59)" rx="2" ry="2" />
+<text  x="873.20" y="613.5" >java_..</text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.lookup (2 samples, 0.17%)</title><rect x="1082.5" y="683" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1085.46" y="693.5" ></text>
+</g>
+<g >
+<title>__netif_receive_skb (1 samples, 0.08%)</title><rect x="1858.1" y="507" width="1.6" height="15.0" fill="rgb(231,131,0)" rx="2" ry="2" />
+<text  x="1861.08" y="517.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1613.9" y="219" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1616.90" y="229.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="184.0" y="827" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="186.96" y="837.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readOrdinaryObject (1 samples, 0.08%)</title><rect x="1617.1" y="267" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1620.10" y="277.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readBlockHeader (1 samples, 0.08%)</title><rect x="1545.3" y="459" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1548.28" y="469.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamField.&lt;init&gt; (1 samples, 0.08%)</title><rect x="1612.3" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1615.31" y="261.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream.readHandle (2 samples, 0.17%)</title><rect x="1637.8" y="123" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1640.84" y="133.5" ></text>
+</g>
+<g >
+<title>vmxnet3_poll_rx_only	[vmxnet3] (1 samples, 0.08%)</title><rect x="1058.5" y="507" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1061.52" y="517.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1645.8" y="235" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1648.82" y="245.5" ></text>
+</g>
+<g >
+<title>java/lang/StringUTF16.checkBoundsBeginEnd (4 samples, 0.34%)</title><rect x="517.5" y="539" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="520.50" y="549.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.read (1 samples, 0.08%)</title><rect x="1609.1" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1612.12" y="261.5" ></text>
+</g>
+<g >
+<title>__dev_kfree_skb_any (1 samples, 0.08%)</title><rect x="603.7" y="491" width="1.6" height="15.0" fill="rgb(230,130,0)" rx="2" ry="2" />
+<text  x="606.68" y="501.5" ></text>
+</g>
+<g >
+<title>java/io/DataInputStream.readFully (2 samples, 0.17%)</title><rect x="1644.2" y="315" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="325.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectStreamClass.initNonProxy (35 samples, 2.97%)</title><rect x="1416.0" y="635" width="55.9" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1419.01" y="645.5" >java..</text>
+</g>
+<g >
+<title>jbyte_disjoint_arraycopy (3 samples, 0.25%)</title><rect x="1787.9" y="619" width="4.7" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text  x="1790.86" y="629.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readBlockHeader (1 samples, 0.08%)</title><rect x="1644.2" y="251" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1647.23" y="261.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1545.3" y="411" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1548.28" y="421.5" ></text>
+</g>
+<g >
+<title>do_softirq (1 samples, 0.08%)</title><rect x="1289.9" y="491" width="1.6" height="15.0" fill="rgb(243,143,0)" rx="2" ry="2" />
+<text  x="1292.93" y="501.5" ></text>
+</g>
+<g >
+<title>ret_from_intr (1 samples, 0.08%)</title><rect x="1058.5" y="619" width="1.6" height="15.0" fill="rgb(235,135,0)" rx="2" ry="2" />
+<text  x="1061.52" y="629.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readObject (1,048 samples, 88.96%)</title><rect x="212.7" y="859" width="1672.5" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="215.68" y="869.5" >com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.readObject</text>
+</g>
+<g >
+<title>java/util/ArrayList.readObject (88 samples, 7.47%)</title><rect x="1561.2" y="587" width="140.5" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1564.24" y="597.5" >java/util/Array..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFSpan (19 samples, 1.61%)</title><rect x="1649.0" y="427" width="30.3" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1652.02" y="437.5" >j..</text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.assign (4 samples, 0.34%)</title><rect x="1186.2" y="571" width="6.4" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1189.20" y="581.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$HandleTable.finish (2 samples, 0.17%)</title><rect x="1823.0" y="667" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1825.97" y="677.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.skipBlockData (1 samples, 0.08%)</title><rect x="1641.0" y="91" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1644.04" y="101.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$BlockDataInputStream.refill (1 samples, 0.08%)</title><rect x="1483.0" y="619" width="1.6" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1486.04" y="629.5" ></text>
+</g>
+<g >
+<title>vmxnet3_poll_rx_only	[vmxnet3] (1 samples, 0.08%)</title><rect x="1858.1" y="571" width="1.6" height="15.0" fill="rgb(222,122,0)" rx="2" ry="2" />
+<text  x="1861.08" y="581.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1097844ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1097844ul&gt;::oop_access_barrier(void*) (1 samples, 0.08%)</title><rect x="1320.3" y="571" width="1.6" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="1323.25" y="581.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/map/impl/operation/KeyBasedMapOperation.readInternal (1 samples, 0.08%)</title><rect x="239.8" y="731" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="242.81" y="741.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/nio/IOUtil$ClassLoaderAwareObjectInputStream.resolveClass (4 samples, 0.34%)</title><rect x="1139.9" y="635" width="6.4" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1142.92" y="645.5" ></text>
+</g>
+<g >
+<title>java/io/ObjectInputStream$PeekInputStream.readFully (2 samples, 0.17%)</title><rect x="1578.8" y="411" width="3.2" height="15.0" fill="rgb(77,224,77)" rx="2" ry="2" />
+<text  x="1581.79" y="421.5" ></text>
+</g>
+<g >
+<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;565366ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)3, 565366ul&gt;::oop_access_barrier(oopDesc*, long) (3 samples, 0.25%)</title><rect x="823.9" y="571" width="4.8" height="15.0" fill="rgb(218,218,65)" rx="2" ry="2" />
+<text  x="826.92" y="581.5" ></text>
+</g>
+<g >
+<title>com/hazelcast/internal/serialization/impl/ByteArrayObjectDataInput.read (1 samples, 0.08%)</title><rect x="1299.5" y="523" width="1.6" height="15.0" fill="rgb(89,235,89)" rx="2" ry="2" />
+<text  x="1302.51" y="533.5" ></text>
+</g>
+</g>
+</svg>
