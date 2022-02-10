@@ -1,0 +1,63 @@
+<!--
+/*
+ * Copyright 2020 Krzysztof Slusarski
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<!DOCTYPE HTML>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" th:href="@{webjars/bootstrap/4.2.1/css/bootstrap.min.css}"/>
+    <link href="/css/upload.css" rel="stylesheet">
+</head>
+
+<body class="text-center">
+
+<div class="cover-container d-flex h-100 p-3 mx-auto flex-column">
+    <main role="main" class="inner cover">
+        <h1>Collapsed stack viewer</h1>
+
+        <h2>Import from file ...</h2>
+        <form method="POST" enctype="multipart/form-data" action="/upload" target="_blank">
+            <p class="lead">File to upload: <input type="file" name="file"/><input type="submit" value="Submit"/></p>
+            <p>
+                Title (will be visible at every page - useful if there are multiple windows opened): <input type="text" name="title" value="Collapsed"/>
+            </p>
+            <p>
+                Total time threshold (do not show method with total time less then): <input type="text" name="totalTimeThreshold" value="0.005"/>
+            </p>
+            <p>
+                Self time threshold (do not show method with self time less then): <input type="text" name="selfTimeThreshold" value="0.0001"/>
+            </p>
+            <p>
+                Filter stacks by: <input type="text" name="filter"/>
+            </p>
+        </form>
+        <p class="lead">
+            Compress logs <span class="font-weight-bold">(*.zip, *.gz, *.xz, *.7z)</span> for fast uploads.
+        </p>
+        <div class="lead text-left">
+            Author: Krzysztof Ślusarski
+            Email: ks@gclogs.com
+        </div>
+    </main>
+</div>
+
+<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
+<script type="text/javascript" th:src="@{webjars/bootstrap/4.2.1/js/bootstrap.min.js}"></script>
+
+</body>
+</html>

@@ -1,20 +1,20 @@
-# collapsed-stack-viewer
+# viewer
 Viewer for collapsed stack output of profiles. Dedicated to async-profiler.
 
 ## How to install - from binaries
-Simply download latest release from `https://github.com/krzysztofslusarski/collapsed-stack-viewer/releases`.
+Simply download latest release from `https://github.com/krzysztofslusarski/viewer/releases`.
 
 ## How to install - from sources
 ```shell script
-git clone --depth 1 https://github.com/krzysztofslusarski/collapsed-stack-viewer.git
-cd collapsed-stack-viewer/
+git clone --depth 1 https://github.com/krzysztofslusarski/viewer.git
+cd viewer/
 mvn clean package
 ```
 
 JAVA_HOME should point to JDK 11.
 
 ## How to run
-`java -jar collapsed-stack-viewer.jar`
+`java -jar viewer.jar`
 
 Java should point to JDK 11. After you run it, viewer is available on `http://localhost:8079/`.
 
@@ -38,7 +38,7 @@ server:
 * `-f output.txt ` - output file
 * `<pid>` - pid of your JVM
 
-## Features of collapsed-stack-viewer
+## Features of viewer
 ### Analysis of 1 file
 #### Flame graphs
 ![Flame graphs](images/flame-graphs.png)
@@ -67,13 +67,3 @@ Callee graph shows what method is actually doing. This graph is aggregated, so i
 ![Callee](images/callers.svg)
 
 Callers graph shows what which method used profiled method. This graph is aggregated, so it shows every usage of method.
-
-### Compare 2 files
-
-Viewer can compare two files, it will present 
-* Method total/self time tables:
-  * Methods not found in the 1st file
-  * Methods not found in the 2nd file
-  * Methods that used more resources in the 1st file then in the 2nd file
-  * Methods that used more resources in the 2nd file then in the 1st file
-  * Methods that used the same amount of resources
