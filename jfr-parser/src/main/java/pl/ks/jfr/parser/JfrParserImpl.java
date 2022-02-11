@@ -42,14 +42,19 @@ import org.openjdk.jmc.flightrecorder.JfrAttributes;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
 import org.openjdk.jmc.flightrecorder.internal.EventArrays;
 import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
+import org.springframework.util.StopWatch;
 import pl.ks.jfr.parser.filter.PreStackFilter;
 
 @Slf4j
-public class JfrParserImpl implements JfrParser {
+class JfrParserImpl implements JfrParser {
     @Override
     public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters) {
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         JfrParsedFile jfrParsedFile = new JfrParsedFile();
         jfrFiles.forEach(path -> parseFile(jfrParsedFile, path, filters));
+        stopWatch.stop();
+        log.info("Parsing took: {}ms", stopWatch.getLastTaskTimeMillis());
         return jfrParsedFile;
     }
 

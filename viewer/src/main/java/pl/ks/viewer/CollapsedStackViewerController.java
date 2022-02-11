@@ -84,6 +84,20 @@ class CollapsedStackViewerController {
         return "welcome";
     }
 
+    @PostMapping("/upload-temp")
+    String uploadTemp(Model model,
+                  @RequestParam("tempFile") String tempFile,
+                  @RequestParam("filter") String filter,
+                  @RequestParam("title") String title,
+                  @RequestParam("totalTimeThreshold") BigDecimal totalTimeThreshold,
+                  @RequestParam("selfTimeThreshold") BigDecimal selfTimeThreshold) throws Exception {
+        model.addAttribute("welcomePage", WelcomePage.builder()
+                .pages(collapsedStackPageCreator.generatePages(tempFile, title, totalTimeThreshold, selfTimeThreshold))
+                .title(title)
+                .build());
+        return "welcome";
+    }
+
     @GetMapping(value = "/image/{name}", produces = "text/html")
     @SneakyThrows
     @ResponseBody

@@ -28,11 +28,20 @@
 
 <div class="cover-container d-flex h-100 p-3 mx-auto flex-column">
     <main role="main" class="inner cover">
-        <h1>Collapsed stack viewer</h1>
+        <h1>JFR viewer</h1>
 
-        <h2>Import from file ...</h2>
-        <form method="POST" enctype="multipart/form-data" action="/upload" target="_blank">
-            <p class="lead">File to upload: <input type="file" name="file"/><input type="submit" value="Submit"/></p>
+        <h2>Choose mode: </h2>
+        <form method="POST" enctype="multipart/form-data" action="/upload-temp" target="_blank">
+            <p class="lead" th:inline="text">
+                Available modes:
+                <select name="tempFile">
+                    <option th:each="file: ${collapsed}" th:value="${file.getValue()}" th:inline="text">
+                        [[${file.getKey()}]]
+                    </option>
+                </select>
+
+                <input type="submit" value="Submit"/>
+            </p>
             <p>
                 Title (will be visible at every page - useful if there are multiple windows opened): <input type="text" name="title" value="Collapsed"/>
             </p>
@@ -46,9 +55,6 @@
                 Filter stacks by: <input type="text" name="filter"/>
             </p>
         </form>
-        <p class="lead">
-            Compress logs <span class="font-weight-bold">(*.zip, *.gz, *.xz, *.7z)</span> for fast uploads.
-        </p>
         <div class="lead text-left">
             Author: Krzysztof Ślusarski
             Email: ks@gclogs.com

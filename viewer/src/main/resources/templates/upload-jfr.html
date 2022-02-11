@@ -31,8 +31,8 @@
         <h1>JFR viewer</h1>
 
         <h2>Import from files ...</h2>
-        <form method="POST" enctype="multipart/form-data" action="/upload" target="_blank">
-            <p class="lead">Files to upload: <input type="file" name="file"/><input type="submit" value="Submit"/></p>
+        <form method="POST" enctype="multipart/form-data" action="/upload-jfr" target="_blank">
+            <p class="lead">Files to upload: <input type="file" name="files" multiple/><input type="submit" value="Submit"/></p>
         </form>
         <p class="lead">
             Compress JFR <span class="font-weight-bold">(*.gz)</span> for fast uploads.

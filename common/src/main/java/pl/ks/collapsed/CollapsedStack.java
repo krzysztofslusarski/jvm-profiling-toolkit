@@ -1,4 +1,4 @@
-package pl.ks;
+package pl.ks.collapsed;
 
 import java.util.HashMap;
 import java.util.Map;

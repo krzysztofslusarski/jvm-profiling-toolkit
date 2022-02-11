@@ -15,12 +15,23 @@
  */
 package pl.ks.viewer;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import pl.ks.jfr.parser.JfrParser;
 
-@SpringBootApplication
-public class CollapsedStackViewerApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CollapsedStackViewerApplication.class, args);
+@Configuration(proxyBeanMethods = false)
+@RequiredArgsConstructor
+class ViewerConfiguration {
+    private final JfrParser jfrParser;
+
+    @Bean
+    CollapsedStackPageCreator collapsedStackPageCreator() {
+        return new CollapsedStackPageCreator();
+    }
+
+    @Bean
+    JfrViewerService jfrViewerService() {
+        return new JfrViewerService(jfrParser);
     }
 }

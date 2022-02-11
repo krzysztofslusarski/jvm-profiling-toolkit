@@ -15,16 +15,47 @@
  */
 package pl.ks.viewer;
 
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import pl.ks.jfr.parser.JfrParsedFile;
+import pl.ks.viewer.io.TempFileUtils;
 
 @Controller
 @RequiredArgsConstructor
 class JfrViewerController {
+    private final JfrViewerService jfrViewerService;
+
     @GetMapping("/upload-jfr")
     String uploadJfr() {
         return "upload-jfr";
     }
 
+    @PostMapping("/upload-jfr")
+    String upload(Model model,
+                  @RequestParam("files") MultipartFile[] files) throws Exception {
+        List<String> savedCopies = new ArrayList<>(files.length);
+        for (MultipartFile file : files) {
+            String originalFilename = file.getOriginalFilename();
+            boolean isGzip = originalFilename != null && originalFilename.endsWith(".gz");
+            String fileName = "jfr-" + UUID.randomUUID().toString() + ".jfr" +
+                    (isGzip ? ".gz" : "");
+            String filePath = TempFileUtils.TEMP_DIR + fileName;
+            IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
+            savedCopies.add(filePath);
+        }
+        Map<JfrParsedFile.Type, String> converted = jfrViewerService.convertToCollapsed(savedCopies);
+        model.addAttribute("collapsed", converted.entrySet());
+        return "uploaded-jfr";
+    }
 }
