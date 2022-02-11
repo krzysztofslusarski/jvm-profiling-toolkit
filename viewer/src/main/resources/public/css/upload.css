@@ -18,6 +18,7 @@ a,
 a:focus,
 a:hover {
     color: #fff;
+    text-decoration: underline;
 }
 
 .btn-secondary,

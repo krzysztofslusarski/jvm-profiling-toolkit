@@ -51,17 +51,12 @@ class CollapsedStackViewerController {
     private final CollapsedStackPageCreator collapsedStackPageCreator;
     private final FlameGraphExecutor flameGraphExecutor;
 
-    @GetMapping("/")
-    String defaultPage() {
-        return "upload";
-    }
-
-    @GetMapping("/upload")
+    @GetMapping("/upload-collapsed")
     String upload() {
-        return "upload";
+        return "upload-collapsed";
     }
 
-    @PostMapping("/upload")
+    @PostMapping("/upload-collapsed")
     String upload(Model model,
                   @RequestParam("file") MultipartFile file,
                   @RequestParam("filter") String filter,
@@ -81,7 +76,7 @@ class CollapsedStackViewerController {
                 .pages(collapsedStackPageCreator.generatePages(uncompressedFileName, title, totalTimeThreshold, selfTimeThreshold))
                 .title(title)
                 .build());
-        return "welcome";
+        return "collapsed";
     }
 
     @PostMapping("/upload-temp")
@@ -95,7 +90,7 @@ class CollapsedStackViewerController {
                 .pages(collapsedStackPageCreator.generatePages(tempFile, title, totalTimeThreshold, selfTimeThreshold))
                 .title(title)
                 .build());
-        return "welcome";
+        return "collapsed";
     }
 
     @GetMapping(value = "/image/{name}", produces = "text/html")
@@ -282,7 +277,7 @@ class CollapsedStackViewerController {
                 .pages(collapsedStackPageCreator.generatePages(fileName, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
                 .title(title + " " + method)
                 .build());
-        return "welcome";
+        return "collapsed";
     }
 
 
@@ -362,7 +357,7 @@ class CollapsedStackViewerController {
                 .pages(collapsedStackPageCreator.generatePages(fileName, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
                 .title(title + " " + method)
                 .build());
-        return "welcome";
+        return "collapsed";
     }
 
     private void copyFileWithFilter(String filter, InputStream inputStream, String outputFileName) throws IOException {
