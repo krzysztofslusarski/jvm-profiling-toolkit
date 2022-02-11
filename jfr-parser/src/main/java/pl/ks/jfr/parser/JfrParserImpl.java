@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -129,9 +130,9 @@ class JfrParserImpl implements JfrParser {
         IMemberAccessor<IQuantity, IItem> allocationSizeAccessor = JfrParserHelper.findAllocSizeAccessor(eventArray);
         IMemberAccessor<IMCType, IItem> objectClassAccessor = JfrParserHelper.findObjectClassAccessor(eventArray);
 
-        for (IItem event : eventArray.getEvents()) {
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
             if (shouldSkipByFilter(preStackFilters, startTimeAccessor, threadAccessor, event)) {
-                continue;
+                return;
             }
 
             String objectClass = objectClassAccessor.getMember(event).getFullName();
@@ -139,7 +140,7 @@ class JfrParserImpl implements JfrParser {
             long size = allocationSizeAccessor.getMember(event).longValue();
             jfrParsedFile.getAllocCount().addSingleStack(stacktrace);
             jfrParsedFile.getAllocSize().add(stacktrace, size);
-        }
+        });
     }
 
     private static void processLockEvent(JfrParsedFile jfrParsedFile, List<PreStackFilter> preStackFilters, EventArray eventArray) {
@@ -148,15 +149,15 @@ class JfrParserImpl implements JfrParser {
         IMemberAccessor<IMCThread, IItem> threadAccessor = JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType());
         IMemberAccessor<IMCType, IItem> monitorClassAccessor = JfrParserHelper.findMonitorClassAccessor(eventArray);
 
-        for (IItem event : eventArray.getEvents()) {
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
             if (shouldSkipByFilter(preStackFilters, startTimeAccessor, threadAccessor, event)) {
-                continue;
+                return;
             }
 
             String monitorClass = monitorClassAccessor.getMember(event).getFullName();
             String stacktrace = fetchFlatStackTrace(event, stackTraceAccessor, threadAccessor) + ";" + monitorClass + "_[i]";
             jfrParsedFile.getLock().addSingleStack(stacktrace);
-        }
+        });
     }
 
     private static void processWallEvent(JfrParsedFile jfrParsedFile, List<PreStackFilter> preStackFilters, EventArray eventArray) {
@@ -165,9 +166,9 @@ class JfrParserImpl implements JfrParser {
         IMemberAccessor<IMCThread, IItem> threadAccessor = JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType());
         IMemberAccessor<String, IItem> stateAccessor = JfrParserHelper.findStateAccessor(eventArray);
 
-        for (IItem event : eventArray.getEvents()) {
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
             if (shouldSkipByFilter(preStackFilters, startTimeAccessor, threadAccessor, event)) {
-                continue;
+                return;
             }
 
             String stacktrace = fetchFlatStackTrace(event, stackTraceAccessor, threadAccessor);
@@ -175,7 +176,7 @@ class JfrParserImpl implements JfrParser {
             if (stateAccessor != null && JfrParserHelper.isConsumingCpu(stateAccessor.getMember(event))) {
                 jfrParsedFile.getCpu().addSingleStack(stacktrace);
             }
-        }
+        });
     }
 
     private static boolean shouldSkipByFilter(List<PreStackFilter> preStackFilters,

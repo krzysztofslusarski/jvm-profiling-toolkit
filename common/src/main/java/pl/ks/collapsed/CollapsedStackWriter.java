@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,7 +29,7 @@ public class CollapsedStackWriter {
     public static void saveFile(String dir, String fileName, CollapsedStack collapsedStack) throws IOException {
         log.info("Writing to dir: {} with file name: {}", dir, fileName);
         try (Writer output = new OutputStreamWriter(new FileOutputStream(dir + "/" + fileName ))) {
-            for (Map.Entry<String, CollapsedStack.StackCount> holderEntry : collapsedStack.stacks().entrySet()) {
+            for (Map.Entry<String, AtomicLong> holderEntry : collapsedStack.stacks().entrySet()) {
                 write(output, holderEntry);
             }
         }
@@ -37,16 +38,16 @@ public class CollapsedStackWriter {
     public static void saveGZipFile(String dir, String fileName, CollapsedStack collapsedStack) throws IOException {
         log.info("Writing to dir: {} with file name: {}.gz", dir, fileName);
         try (Writer output = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(dir + "/" + fileName + ".gz")))) {
-            for (Map.Entry<String, CollapsedStack.StackCount> holderEntry : collapsedStack.stacks().entrySet()) {
+            for (Map.Entry<String, AtomicLong> holderEntry : collapsedStack.stacks().entrySet()) {
                 write(output, holderEntry);
             }
         }
     }
 
-    private static void write(Writer output, Map.Entry<String, CollapsedStack.StackCount> holderEntry) throws IOException {
+    private static void write(Writer output, Map.Entry<String, AtomicLong> holderEntry) throws IOException {
         output.write(holderEntry.getKey());
         output.write(" ");
-        output.write("" + holderEntry.getValue().count());
+        output.write("" + holderEntry.getValue().get());
         output.write("\n");
     }
 }
