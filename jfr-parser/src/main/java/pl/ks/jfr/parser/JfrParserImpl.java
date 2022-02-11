@@ -24,7 +24,11 @@ import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCStackTrace;
@@ -48,6 +52,46 @@ public class JfrParserImpl implements JfrParser {
         jfrFiles.forEach(path -> parseFile(jfrParsedFile, path, filters));
         return jfrParsedFile;
     }
+
+    @Override
+    public StartEndDate calculateDatesWithCoolDownAndWarmUp(Stream<Path> paths, int warmUp, int coolDown) {
+        Instant startDate = null;
+        Instant endDate = null;
+
+        try {
+            for (Path path : paths.collect(Collectors.toList())) {
+                EventArrays flightRecording = getFlightRecording(path);
+                for (EventArray eventArray : flightRecording.getArrays()) {
+                    if (!isAsyncWallEvent(eventArray) && !isLockEvent(eventArray) && !isAsyncAllocNewTLABEvent(eventArray) && !isAsyncAllocOutsideTLABEvent(eventArray)) {
+                        continue;
+                    }
+                    IMemberAccessor<IQuantity, IItem> startTimeAccessor = JfrAttributes.START_TIME.getAccessor(eventArray.getType());
+                    for (IItem event : eventArray.getEvents()) {
+                        long startTimestamp = startTimeAccessor.getMember(event).longValue();
+                        Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
+                        if (endDate == null || endDate.isBefore(eventDate)) {
+                            endDate = eventDate;
+                        }
+                        if (startDate == null || startDate.isAfter(eventDate)) {
+                            startDate = eventDate;
+                        }
+                    }
+                }
+            }
+
+            startDate = startDate.plus(warmUp, ChronoUnit.SECONDS);
+            endDate = endDate.minus(coolDown, ChronoUnit.SECONDS);
+
+            return StartEndDate.builder()
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .build();
+        } catch (Exception e) {
+            log.error("Fatal error", e);
+            throw new RuntimeException(e);
+        }
+    }
+
 
     private static void parseFile(JfrParsedFile jfrParsedFile, Path file, List<PreStackFilter> preStackFilters) {
         log.info("Input file: " + file.getFileName());
