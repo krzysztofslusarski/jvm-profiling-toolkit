@@ -1,11 +1,12 @@
-package pl.ks.profiling;
+package pl.ks.viewer;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@ComponentScan(basePackages = {
-        "pl.ks"
+@ComponentScan({
+        "pl.ks.viewer",
+        "pl.ks.jfr",
 })
-class ApplicationConfiguration {
+class ViewerApplicationConfiguration {
 }

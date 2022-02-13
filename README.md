@@ -1,12 +1,12 @@
-# viewer
-Viewer for collapsed stack output of profiles. Dedicated to async-profiler.
+# Java profiling toolkit
+Viewer for collapsed stack and JFR outputs of profiles. Dedicated to async-profiler.
 
 ## How to install - from binaries
-Simply download latest release from `https://github.com/krzysztofslusarski/viewer/releases`.
+Simply download latest release from `https://github.com/krzysztofslusarski/java-profiling-toolkit/releases`.
 
 ## How to install - from sources
 ```shell script
-git clone --depth 1 https://github.com/krzysztofslusarski/viewer.git
+git clone --depth 1 https://github.com/krzysztofslusarski/java-profiling-toolkit.git
 cd viewer/
 mvn clean package
 ```
@@ -14,7 +14,7 @@ mvn clean package
 JAVA_HOME should point to JDK 11.
 
 ## How to run
-`java -jar viewer.jar`
+`java -jar profiling-toolkit.jar`
 
 Java should point to JDK 11. After you run it, viewer is available on `http://localhost:8079/`.
 
@@ -26,7 +26,7 @@ server:
   port: 8079 
 ```
 
-## Example usage od async-profiler
+## Example usage od async-profiler for collapsed stack
 `
 ./profiler -t -d 30 -e cpu -o collapsed -f output.txt <pid>
 `

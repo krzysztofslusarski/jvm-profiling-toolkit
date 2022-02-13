@@ -11,7 +11,7 @@
         <module>viewer</module>
         <module>jfr-parser</module>
         <module>common</module>
-        <module>application</module>
+        <module>viewer-application</module>
     </modules>
 
     <parent>
