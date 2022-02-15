@@ -14,7 +14,10 @@ public class JfrParsedFile {
     CollapsedStack allocCount = new CollapsedStack();
     CollapsedStack allocSize = new CollapsedStack();
     CollapsedStack lock = new CollapsedStack();
-    CollapsedStack cpuLoad = new CollapsedStack();
+    CollapsedStack cpuLoadJvmTotal = new CollapsedStack();
+    CollapsedStack cpuLoadJvmSystem = new CollapsedStack();
+    CollapsedStack cpuLoadJvmUser = new CollapsedStack();
+    CollapsedStack cpuLoadMachineTotal = new CollapsedStack();
 
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();
@@ -33,9 +36,16 @@ public class JfrParsedFile {
                 return allocSize;
             case LOCK:
                 return lock;
-            case CPU_LOAD:
-                return cpuLoad;
+            case CPU_LOAD_JVM_TOTAL:
+                return cpuLoadJvmTotal;
+            case CPU_LOAD_JVM_SYSTEM:
+                return cpuLoadJvmSystem;
+            case CPU_LOAD_JVM_USER:
+                return cpuLoadJvmUser;
+            case CPU_LOAD_MACHINE_TOTAL:
+                return cpuLoadMachineTotal;
         }
+
         throw new RuntimeException("?");
     }
 
@@ -46,7 +56,10 @@ public class JfrParsedFile {
         ALLOC_COUNT("alloc count"),
         ALLOC_SIZE("alloc size"),
         LOCK("lock"),
-        CPU_LOAD("cpu load");
+        CPU_LOAD_JVM_TOTAL("cpu load - jvm total"),
+        CPU_LOAD_JVM_SYSTEM("cpu load - jvm system"),
+        CPU_LOAD_JVM_USER("cpu load - jvm user"),
+        CPU_LOAD_MACHINE_TOTAL("cpu load - machine total");
 
         private final String name;
     }
