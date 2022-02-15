@@ -97,6 +97,14 @@ class JfrParserHelper {
         return false;
     }
 
+    static boolean isInitialSystemProperty(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("jdk.InitialSystemProperty");
+        }
+        return false;
+    }
+
     static String fetchFlatStackTrace(IItem event, IMemberAccessor<IMCStackTrace, IItem> stackTraceAccessor, IMemberAccessor<IMCThread, IItem> threadAccessor) {
         String threadName = threadAccessor.getMember(event).getThreadName();
         List<? extends IMCFrame> frames = stackTraceAccessor.getMember(event).getFrames();
@@ -177,6 +185,24 @@ class JfrParserHelper {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("machineTotal")) {
                 return (IMemberAccessor<ITypedQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<String, IItem> findKeyAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("key")) {
+                return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<String, IItem> findValueAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("value")) {
+                return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
             }
         }
         return null;

@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,13 +31,13 @@ import java.util.stream.Collectors;
 class JfrViewerService {
     private final JfrParser jfrParser;
 
-    Map<JfrParsedFile.Type, String> convertToCollapsed(List<String> files, JfrViewerFilterConfig config) throws IOException {
+    JfrViewerResult convertToCollapsed(List<String> files, JfrViewerFilterConfig config) throws IOException {
         List<Path> paths = files.stream()
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
         JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths));
-        Map<JfrParsedFile.Type, String> collapsedFiles = new HashMap<>();
+        Map<JfrParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();
         for (JfrParsedFile.Type type : JfrParsedFile.Type.values()) {
             CollapsedStack collapsedStack = parsedFile.get(type);
             if (collapsedStack.isNotEmpty()) {
@@ -53,7 +53,10 @@ class JfrViewerService {
                 throw new RuntimeException(e);
             }
         });
-        return collapsedFiles;
+        return JfrViewerResult.builder()
+                .collapsedFiles(collapsedFiles)
+                .jfrParsedFile(parsedFile)
+                .build();
     }
 
     @SneakyThrows

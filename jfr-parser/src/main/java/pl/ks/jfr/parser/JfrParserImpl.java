@@ -55,6 +55,7 @@ import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
 import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
@@ -138,12 +139,23 @@ class JfrParserImpl implements JfrParser {
                     processEventValueToMap(jfrParsedFile.getCpuInfo(), eventArray);
                 } else if (isJvmInfoEvent(eventArray)) {
                     processEventValueToMap(jfrParsedFile.getJvmInfo(), eventArray);
+                } else if (isInitialSystemProperty(eventArray)) {
+                    processKVEventValueToMap(jfrParsedFile.getInitialSystemProperties(), eventArray);
                 }
             }
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private static void processKVEventValueToMap(Map<String, String> map, EventArray eventArray) {
+        IMemberAccessor<String, IItem> keyAccessor = JfrParserHelper.findKeyAccessor(eventArray);
+        IMemberAccessor<String, IItem> valueAccessor = JfrParserHelper.findValueAccessor(eventArray);
+
+        Arrays.stream(eventArray.getEvents()).forEach(event -> {
+            map.put(keyAccessor.getMember(event), valueAccessor.getMember(event));
+        });
     }
 
     private static void processEventValueToMap(Map<String, String> map, EventArray eventArray) {

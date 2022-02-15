@@ -21,6 +21,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="/css/upload-materialized.css" rel="stylesheet">
 </head>
 
 <body>
@@ -93,6 +94,63 @@
                 </div>
             </div>
         </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">
+                        JVM Info
+                    </span>
+
+                    <div class="row" >
+                        <pre class="jfr-info" th:each="content, contentStatus: ${jfr.getJvmInfo().entrySet()}" th:inline="text">[[${content.getKey()}]]: [[${content.getValue()}]]</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">
+                        Initial system properties
+                    </span>
+
+                    <div class="row" >
+                        <pre class="jfr-info" th:each="content, contentStatus: ${jfr.getInitialSystemProperties().entrySet()}" th:inline="text">[[${content.getKey()}]]: [[${content.getValue()}]]</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">
+                        CPU Info
+                    </span>
+
+                    <div class="row" >
+                        <pre class="jfr-info" th:each="content, contentStatus: ${jfr.getCpuInfo().entrySet()}" th:inline="text">[[${content.getKey()}]]: [[${content.getValue()}]]</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">
+                        OS Info
+                    </span>
+
+                    <div class="row">
+                        <pre class="jfr-info" th:each="content, contentStatus: ${jfr.getOsInfo().entrySet()}" th:inline="text">[[${content.getKey()}]]: [[${content.getValue()}]]</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col s12">
             <div class="card">
                 <div class="card-content">

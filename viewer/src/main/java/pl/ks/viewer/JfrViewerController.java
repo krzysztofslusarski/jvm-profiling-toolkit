@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
-import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
 
 import java.io.FileOutputStream;
@@ -56,8 +55,9 @@ class JfrViewerController {
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);
         }
-        Map<JfrParsedFile.Type, String> converted = jfrViewerService.convertToCollapsed(savedCopies, createConfig(params));
-        model.addAttribute("collapsed", converted.entrySet());
+        JfrViewerResult converted = jfrViewerService.convertToCollapsed(savedCopies, createConfig(params));
+        model.addAttribute("collapsed", converted.getCollapsedFiles().entrySet());
+        model.addAttribute("jfr", converted.getJfrParsedFile());
         return "uploaded-jfr";
     }
 

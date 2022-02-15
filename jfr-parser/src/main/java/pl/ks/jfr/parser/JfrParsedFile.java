@@ -19,6 +19,7 @@ public class JfrParsedFile {
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();
     Map<String, String> jvmInfo = new ConcurrentHashMap<>();
+    Map<String, String> initialSystemProperties = new ConcurrentHashMap<>();
 
     public CollapsedStack get(Type type) {
         switch (type) {
