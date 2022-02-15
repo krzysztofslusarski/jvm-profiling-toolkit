@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import pl.ks.collapsed.CollapsedStack;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Value
 public class JfrParsedFile {
     CollapsedStack wall = new CollapsedStack();
@@ -12,6 +15,10 @@ public class JfrParsedFile {
     CollapsedStack allocSize = new CollapsedStack();
     CollapsedStack lock = new CollapsedStack();
     CollapsedStack cpuLoad = new CollapsedStack();
+
+    Map<String, String> cpuInfo = new ConcurrentHashMap<>();
+    Map<String, String> osInfo = new ConcurrentHashMap<>();
+    Map<String, String> jvmInfo = new ConcurrentHashMap<>();
 
     public CollapsedStack get(Type type) {
         switch (type) {

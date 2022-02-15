@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCStackTrace;
 import org.openjdk.jmc.common.IMCThread;
 import org.openjdk.jmc.common.IMCType;
+import org.openjdk.jmc.common.item.IAccessorKey;
 import org.openjdk.jmc.common.item.IItem;
 import org.openjdk.jmc.common.item.IMemberAccessor;
 import org.openjdk.jmc.common.unit.IQuantity;
@@ -36,10 +37,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -48,11 +53,15 @@ import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
+    private static final SimpleDateFormat OUTPUT_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US);
     private static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal(100);
 
     @Override
@@ -123,12 +132,42 @@ class JfrParserImpl implements JfrParser {
                     processAllocEvent(jfrParsedFile, preStackFilters, eventArray, true);
                 } else if (isCpuLoadEvent(eventArray)) {
                     processCpuEvent(jfrParsedFile, preStackFilters, eventArray);
+                } else if (isOsInfoEvent(eventArray)) {
+                    processEventValueToMap(jfrParsedFile.getOsInfo(), eventArray);
+                } else if (isCpuInfoEvent(eventArray)) {
+                    processEventValueToMap(jfrParsedFile.getCpuInfo(), eventArray);
+                } else if (isJvmInfoEvent(eventArray)) {
+                    processEventValueToMap(jfrParsedFile.getJvmInfo(), eventArray);
                 }
             }
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private static void processEventValueToMap(Map<String, String> map, EventArray eventArray) {
+        Arrays.stream(eventArray.getEvents()).forEach(event -> {
+            for (IAccessorKey<?> accessor : eventArray.getType().getAccessorKeys().keySet()) {
+                String key = accessor.getIdentifier();
+                IMemberAccessor<?, IItem> valueAccessor = eventArray.getType().getAccessor(accessor);
+                Object objValue = valueAccessor.getMember(event);
+                if (objValue instanceof String) {
+                    map.put(key, objValue.toString());
+                } else if (objValue instanceof IQuantity) {
+                    IQuantity iQuantity = (IQuantity) objValue;
+                    if ("timestamp".equals(iQuantity.getType().getIdentifier())) {
+                        long startTimestamp = iQuantity.longValue();
+                        Instant eventDate = iQuantity.getUnit().getIdentifier().equals("epochms") ?
+                                Instant.ofEpochMilli(startTimestamp) :
+                                Instant.ofEpochMilli(startTimestamp / 1000000);
+                        map.put(key, OUTPUT_FORMAT.format(Date.from(eventDate)));
+                    } else {
+                        map.put(key, objValue.toString().replace("[]", ""));
+                    }
+                }
+            }
+        });
     }
 
     private static void processCpuEvent(JfrParsedFile jfrParsedFile, List<PreStackFilter> preStackFilters, EventArray eventArray) {

@@ -73,6 +73,30 @@ class JfrParserHelper {
         return false;
     }
 
+    static boolean isOsInfoEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("jdk.OSInformation");
+        }
+        return false;
+    }
+
+    static boolean isCpuInfoEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("jdk.CPUInformation");
+        }
+        return false;
+    }
+
+    static boolean isJvmInfoEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("jdk.JVMInformation");
+        }
+        return false;
+    }
+
     static String fetchFlatStackTrace(IItem event, IMemberAccessor<IMCStackTrace, IItem> stackTraceAccessor, IMemberAccessor<IMCThread, IItem> threadAccessor) {
         String threadName = threadAccessor.getMember(event).getThreadName();
         List<? extends IMCFrame> frames = stackTraceAccessor.getMember(event).getFrames();
