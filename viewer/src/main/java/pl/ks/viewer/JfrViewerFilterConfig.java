@@ -1,15 +1,18 @@
 package pl.ks.viewer;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Builder;
+import lombok.Value;
 
-@Data
-@NoArgsConstructor
+@Value
+@Builder
 public class JfrViewerFilterConfig {
-    private Boolean threadFilterOn;
-    private String threadFilter;
-    private Boolean endDurationOn;
-    private String endDate;
-    private String endDateDateTimeFormat;
-    private Long duration;
+    boolean threadFilterOn;
+    String threadFilter;
+    boolean endDurationOn;
+    String endDate;
+    String endDateDateTimeFormat;
+    long duration;
+    boolean warmupCooldownOn;
+    int cooldown;
+    int warmup;
 }

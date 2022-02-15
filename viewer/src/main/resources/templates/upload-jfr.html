@@ -39,8 +39,7 @@
         <div class="col s12">
             <div class="card">
                 <div class="card-content">
-                    <form method="POST" enctype="multipart/form-data" action="/upload-jfr"
-                          target="_blank">
+                    <form method="POST" enctype="multipart/form-data" action="/upload-jfr" target="_blank">
                         <div class="row">
                             <div class="file-field input-field col s6">
                                 <div class="btn">
@@ -54,47 +53,74 @@
                         </div>
                         <div class="row">
                             <div class="file-field input-field col s6">
-                                <button class="btn waves-effect waves-light" type="submit" name="action">Submit
+                                <button class="btn waves-effect waves-light" type="submit" name="action">
+                                    Submit
                                 </button>
                             </div>
                         </div>
 
                         <div class="row">
-                            <div class="input-field col s6">
+                            <div class="input-field col s12">
                                 <label>
                                     <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
                                     <span>Thread filter enabled</span>
                                 </label>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="input-field col s6">
-                                <input id="threadFilter" name="threadFilter" type="text"/>
-                                <label for="threadFilter">Thread filter</label>
+                        <div id="threadFilterContent" style="display: none">
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="threadFilter" name="threadFilter" type="text"/>
+                                    <label for="threadFilter">Thread filter</label>
+                                </div>
                             </div>
                         </div>
+
                         <div class="row">
-                            <div class="input-field col s6">
+                            <div class="input-field col s12">
                                 <label>
                                     <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
                                     <span>End date and duration filter enabled (like access log)</span>
                                 </label>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="input-field col s6">
-                                <input id="endDate" name="endDate" type="text"/>
-                                <label for="endDate">End date</label>
+                        <div id="endDurationContent" style="display: none">
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="endDate" name="endDate" type="text"/>
+                                    <label for="endDate">End date</label>
+                                </div>
+                                <div class="input-field col s6">
+                                    <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text" value="dd/MMM/yyyy:HH:mm:ss Z"/>
+                                    <label for="endDateDateTimeFormat">End date format</label>
+                                </div>
                             </div>
-                            <div class="input-field col s6">
-                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text" value="dd/MMM/yyyy:HH:mm:ss Z"/>
-                                <label for="endDateDateTimeFormat">End date format</label>
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="duration" name="duration" type="text"/>
+                                    <label for="duration">Duration (ms)</label>
+                                </div>
                             </div>
                         </div>
+
                         <div class="row">
-                            <div class="input-field col s6">
-                                <input id="duration" name="duration" type="text"/>
-                                <label for="duration">Duration</label>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox"/>
+                                    <span>Warmup/cooldown filter enabled (skips part of JFR file from the beginning and the end)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="warmupCooldownContent" style="display: none">
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="cooldown" name="cooldown" type="text"/>
+                                    <label for="cooldown">Cooldown (s)</label>
+                                </div>
+                                <div class="input-field col s6">
+                                    <input id="warmup" name="warmup" type="text"/>
+                                    <label for="warmup">Warmup</label>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -113,6 +139,33 @@
         </div>
     </div>
 </div>
-
+<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
+<script type="text/javascript">
+    $("#threadFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#threadFilterContent").show();
+        } else {
+            $("#threadFilterContent").hide();
+        }
+    });
+    $("#endDurationOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#endDurationContent").show();
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#warmupCooldownContent").hide();
+        } else {
+            $("#endDurationContent").hide();
+        }
+    });
+    $("#warmupCooldownOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#warmupCooldownContent").show();
+            $("#endDurationOn").prop("checked", false);
+            $("#endDurationContent").hide();
+        } else {
+            $("#warmupCooldownContent").hide();
+        }
+    });
+</script>
 </body>
 </html>

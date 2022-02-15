@@ -15,22 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.zip.GZIPInputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCStackTrace;
 import org.openjdk.jmc.common.IMCThread;
@@ -45,6 +29,23 @@ import org.openjdk.jmc.flightrecorder.internal.EventArrays;
 import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
 import org.springframework.util.StopWatch;
 import pl.ks.jfr.parser.filter.PreStackFilter;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
+
+import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
@@ -61,8 +62,10 @@ class JfrParserImpl implements JfrParser {
 
     @Override
     public StartEndDate calculateDatesWithCoolDownAndWarmUp(Stream<Path> paths, int warmUp, int coolDown) {
-        Instant startDate = null;
-        Instant endDate = null;
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+
+        StartEndDateCalculator startEndDateCalculator = new StartEndDateCalculator();
 
         try {
             for (Path path : paths.collect(Collectors.toList())) {
@@ -72,25 +75,22 @@ class JfrParserImpl implements JfrParser {
                         continue;
                     }
                     IMemberAccessor<IQuantity, IItem> startTimeAccessor = JfrAttributes.START_TIME.getAccessor(eventArray.getType());
-                    for (IItem event : eventArray.getEvents()) {
-                        long startTimestamp = startTimeAccessor.getMember(event).longValue();
-                        Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
-                        if (endDate == null || endDate.isBefore(eventDate)) {
-                            endDate = eventDate;
-                        }
-                        if (startDate == null || startDate.isAfter(eventDate)) {
-                            startDate = eventDate;
-                        }
-                    }
+
+                    Arrays.stream(eventArray.getEvents()).parallel()
+                            .forEach(event -> {
+                                        long startTimestamp = startTimeAccessor.getMember(event).longValue();
+                                        Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
+                                        startEndDateCalculator.newDate(eventDate);
+                                    }
+                            );
                 }
             }
 
-            startDate = startDate.plus(warmUp, ChronoUnit.SECONDS);
-            endDate = endDate.minus(coolDown, ChronoUnit.SECONDS);
-
+            stopWatch.stop();
+            log.info("Calculating dates took: {}ms", stopWatch.getLastTaskTimeMillis());
             return StartEndDate.builder()
-                    .startDate(startDate)
-                    .endDate(endDate)
+                    .startDate(startEndDateCalculator.getStartDate().plus(warmUp, ChronoUnit.SECONDS))
+                    .endDate(startEndDateCalculator.getEndDate().minus(coolDown, ChronoUnit.SECONDS))
                     .build();
         } catch (Exception e) {
             log.error("Fatal error", e);

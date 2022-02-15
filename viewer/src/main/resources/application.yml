@@ -24,8 +24,8 @@ server:
   port: 8079
 
 
-logging:
-  level:
-    org:
-      springframework:
-        web: TRACE
+#logging:
+#  level:
+#    org:
+#      springframework:
+#        web: TRACE

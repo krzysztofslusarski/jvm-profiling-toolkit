@@ -15,11 +15,6 @@
  */
 package pl.ks.viewer;
 
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -30,6 +25,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -55,8 +56,36 @@ class JfrViewerController {
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);
         }
-        Map<JfrParsedFile.Type, String> converted = jfrViewerService.convertToCollapsed(savedCopies);
+        Map<JfrParsedFile.Type, String> converted = jfrViewerService.convertToCollapsed(savedCopies, createConfig(params));
         model.addAttribute("collapsed", converted.entrySet());
         return "uploaded-jfr";
+    }
+
+    private JfrViewerFilterConfig createConfig(Map<String, String> params) {
+        boolean threadFilterOn = "on".equals(params.get("threadFilterOn"));
+        JfrViewerFilterConfig.JfrViewerFilterConfigBuilder builder = JfrViewerFilterConfig.builder();
+        builder.threadFilterOn(threadFilterOn);
+        if (threadFilterOn) {
+            builder.threadFilter(params.get("threadFilter"));
+        }
+
+        boolean endDurationOn = "on".equals(params.get("endDurationOn"));
+        builder.endDurationOn(endDurationOn);
+        if (endDurationOn) {
+            builder
+                    .duration(Long.parseLong(params.get("duration")))
+                    .endDate(params.get("endDate"))
+                    .endDateDateTimeFormat(params.get("endDateDateTimeFormat"));
+        }
+
+        boolean warmupCooldownOn = "on".equals(params.get("warmupCooldownOn"));
+        builder.warmupCooldownOn(warmupCooldownOn);
+        if (warmupCooldownOn) {
+            builder
+                    .cooldown(Integer.parseInt(params.get("cooldown")))
+                    .warmup(Integer.parseInt(params.get("warmup")));
+        }
+
+        return builder.build();
     }
 }

@@ -1,6 +1,5 @@
 package pl.ks.jfr.parser.filter;
 
-import java.time.Instant;
 import lombok.Builder;
 import lombok.Value;
 import org.openjdk.jmc.common.IMCThread;
@@ -10,7 +9,7 @@ import org.openjdk.jmc.common.unit.IQuantity;
 
 @Value
 @Builder
-public class ThreadNameFilter implements PreStackFilter{
+public class ThreadNameFilter implements PreStackFilter {
     String threadName;
 
     @Override

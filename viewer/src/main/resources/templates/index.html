@@ -16,35 +16,42 @@
  */
 -->
 <!DOCTYPE HTML>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" th:href="@{webjars/bootstrap/4.2.1/css/bootstrap.min.css}"/>
-    <link href="/css/upload.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
 </head>
 
 <body class="text-center">
 
-<div class="cover-container d-flex h-100 p-3 mx-auto flex-column">
-    <main role="main" class="inner cover">
-        <h1>Profiling toolkit</h1>
-
-        <p class="lead">
-            <a href="upload-jfr">JFR file viewer</a>
-        </p>
-        <p class="lead">
-            <a href="upload-collapsed">Collapsed stack file viewer</a>
-        </p>
-        <div class="lead text-left">
-            Author: Krzysztof Ślusarski
-            Email: ks@gclogs.com
+<div class="container">
+    <div class="row">
+        <div class="col s12">
+            <h5>Profiling toolkit</h5>
         </div>
-    </main>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <div class="row">
+                        <a href="upload-jfr">JFR file viewer</a>
+                    </div>
+                    <div class="row">
+                        <a href="upload-collapsed">Collapsed stack file viewer</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    Author: Krzysztof Ślusarski
+                    Email: ks@gclogs.com
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
-<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
-<script type="text/javascript" th:src="@{webjars/bootstrap/4.2.1/js/bootstrap.min.js}"></script>
-
 </body>
 </html>
