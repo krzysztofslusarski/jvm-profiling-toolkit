@@ -22,3 +22,10 @@ server:
   tomcat:
     max-http-post-size: 1024MB
   port: 8079
+
+
+logging:
+  level:
+    org:
+      springframework:
+        web: TRACE

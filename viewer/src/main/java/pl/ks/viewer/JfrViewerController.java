@@ -43,13 +43,14 @@ class JfrViewerController {
 
     @PostMapping("/upload-jfr")
     String upload(Model model,
+                  @RequestParam Map<String, String> params,
                   @RequestParam("files") MultipartFile[] files) throws Exception {
         List<String> savedCopies = new ArrayList<>(files.length);
         for (MultipartFile file : files) {
             String originalFilename = file.getOriginalFilename();
-            boolean isGzip = originalFilename != null && originalFilename.endsWith(".gz");
+            boolean isGZip = originalFilename != null && originalFilename.endsWith(".gz");
             String fileName = "jfr-" + UUID.randomUUID().toString() + ".jfr" +
-                    (isGzip ? ".gz" : "");
+                    (isGZip ? ".gz" : "");
             String filePath = TempFileUtils.TEMP_DIR + fileName;
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);

@@ -20,32 +20,99 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" th:href="@{webjars/bootstrap/4.2.1/css/bootstrap.min.css}"/>
-    <link href="/css/upload.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 </head>
 
-<body class="text-center">
+<body>
 
-<div class="cover-container d-flex h-100 p-3 mx-auto flex-column">
-    <main role="main" class="inner cover">
-        <h1>JFR viewer</h1>
-
-        <h2>Import from files ...</h2>
-        <form method="POST" enctype="multipart/form-data" action="/upload-jfr" target="_blank">
-            <p class="lead">Files to upload: <input type="file" name="files" multiple/><input type="submit" value="Submit"/></p>
-        </form>
-        <p class="lead">
-            Compress JFR <span class="font-weight-bold">(*.gz)</span> for fast uploads.
-        </p>
-        <div class="lead text-left">
-            Author: Krzysztof Ślusarski
-            Email: ks@gclogs.com
+<div class="container">
+    <div class="row">
+        <div class="col s12">
+            <h5>JFR viewer</h5>
         </div>
-    </main>
-</div>
 
-<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
-<script type="text/javascript" th:src="@{webjars/bootstrap/4.2.1/js/bootstrap.min.js}"></script>
+        <div class="col s12">
+            <h6>Import from files ...</h6>
+        </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    <form method="POST" enctype="multipart/form-data" action="/upload-jfr"
+                          target="_blank">
+                        <div class="row">
+                            <div class="file-field input-field col s6">
+                                <div class="btn">
+                                    <span>Files</span>
+                                    <input name="files" type="file" multiple>
+                                </div>
+                                <div class="file-path-wrapper">
+                                    <input class="file-path" type="text" placeholder="Upload one or more files">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="file-field input-field col s6">
+                                <button class="btn waves-effect waves-light" type="submit" name="action">Submit
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <label>
+                                    <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
+                                    <span>Thread filter enabled</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <input id="threadFilter" name="threadFilter" type="text"/>
+                                <label for="threadFilter">Thread filter</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <label>
+                                    <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
+                                    <span>End date and duration filter enabled (like access log)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <input id="endDate" name="endDate" type="text"/>
+                                <label for="endDate">End date</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text" value="dd/MMM/yyyy:HH:mm:ss Z"/>
+                                <label for="endDateDateTimeFormat">End date format</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <input id="duration" name="duration" type="text"/>
+                                <label for="duration">Duration</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content">
+                    Compress JFR <span class="font-weight-bold">(*.gz)</span> for fast uploads. <br>
+                    Author: Krzysztof Ślusarski <br>
+                    Email: ks@gclogs.com
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
