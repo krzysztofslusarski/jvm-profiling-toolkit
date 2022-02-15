@@ -11,6 +11,7 @@ public class JfrParsedFile {
     CollapsedStack allocCount = new CollapsedStack();
     CollapsedStack allocSize = new CollapsedStack();
     CollapsedStack lock = new CollapsedStack();
+    CollapsedStack cpuLoad = new CollapsedStack();
 
     public CollapsedStack get(Type type) {
         switch (type) {
@@ -24,6 +25,8 @@ public class JfrParsedFile {
                 return allocSize;
             case LOCK:
                 return lock;
+            case CPU_LOAD:
+                return cpuLoad;
         }
         throw new RuntimeException("?");
     }
@@ -34,7 +37,8 @@ public class JfrParsedFile {
         CPU("cpu"),
         ALLOC_COUNT("alloc count"),
         ALLOC_SIZE("alloc size"),
-        LOCK("lock");
+        LOCK("lock"),
+        CPU_LOAD("cpu load");
 
         private final String name;
     }

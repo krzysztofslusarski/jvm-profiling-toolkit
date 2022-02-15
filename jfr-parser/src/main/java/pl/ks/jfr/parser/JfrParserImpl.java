@@ -22,6 +22,7 @@ import org.openjdk.jmc.common.IMCType;
 import org.openjdk.jmc.common.item.IItem;
 import org.openjdk.jmc.common.item.IMemberAccessor;
 import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 import org.openjdk.jmc.flightrecorder.JfrAttributes;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
@@ -31,6 +32,8 @@ import org.springframework.util.StopWatch;
 import pl.ks.jfr.parser.filter.PreStackFilter;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -45,10 +48,13 @@ import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
+    private static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal(100);
+
     @Override
     public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters) {
         StopWatch stopWatch = new StopWatch();
@@ -115,6 +121,8 @@ class JfrParserImpl implements JfrParser {
                     processAllocEvent(jfrParsedFile, preStackFilters, eventArray, false);
                 } else if (isAsyncAllocOutsideTLABEvent(eventArray)) {
                     processAllocEvent(jfrParsedFile, preStackFilters, eventArray, true);
+                } else if (isCpuLoadEvent(eventArray)) {
+                    processCpuEvent(jfrParsedFile, preStackFilters, eventArray);
                 }
             }
         } catch (Exception e) {
@@ -122,6 +130,50 @@ class JfrParserImpl implements JfrParser {
             throw new RuntimeException(e);
         }
     }
+
+    private static void processCpuEvent(JfrParsedFile jfrParsedFile, List<PreStackFilter> preStackFilters, EventArray eventArray) {
+        IMemberAccessor<IQuantity, IItem> startTimeAccessor = JfrAttributes.START_TIME.getAccessor(eventArray.getType());
+        IMemberAccessor<ITypedQuantity, IItem> jvmUserAccessor = JfrParserHelper.findCpuJvmUserAccessor(eventArray);
+        IMemberAccessor<ITypedQuantity, IItem> jvmSystemAccessor = JfrParserHelper.findCpuJvmSystemAccessor(eventArray);
+        IMemberAccessor<ITypedQuantity, IItem> machineTotalAccessor = JfrParserHelper.findMachineTotalAccessor(eventArray);
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
+            if (shouldSkipByFilter(preStackFilters, startTimeAccessor, null, event)) {
+                return;
+            }
+
+            ITypedQuantity jvmUser = jvmUserAccessor.getMember(event);
+            ITypedQuantity jvmSystem = jvmSystemAccessor.getMember(event);
+            ITypedQuantity machineTotal = machineTotalAccessor.getMember(event);
+
+            int scaledJvmUser = BigDecimal.valueOf(jvmUser.doubleValue()).multiply(PERCENT_MULTIPLIER).setScale(0, RoundingMode.HALF_EVEN).intValue();
+            int scaledJvmSystem = BigDecimal.valueOf(jvmSystem.doubleValue()).multiply(PERCENT_MULTIPLIER).setScale(0, RoundingMode.HALF_EVEN).intValue();
+            int scaledJvmTotal = scaledJvmSystem + scaledJvmUser;
+            int scaledMachineTotal = BigDecimal.valueOf(machineTotal.doubleValue()).multiply(PERCENT_MULTIPLIER).setScale(0, RoundingMode.HALF_EVEN).intValue();
+
+            jfrParsedFile.getCpuLoad().addSingleStack(createCpuLoadStack("JVM User", scaledJvmUser));
+            jfrParsedFile.getCpuLoad().addSingleStack(createCpuLoadStack("JVM System", scaledJvmSystem));
+            jfrParsedFile.getCpuLoad().addSingleStack(createCpuLoadStack("JVM Total", scaledJvmTotal));
+            jfrParsedFile.getCpuLoad().addSingleStack(createCpuLoadStack("Machine Total", scaledMachineTotal));
+        });
+    }
+
+    private static String createCpuLoadStack(String prefix, int counter) {
+        StringBuilder builder = new StringBuilder(prefix);
+
+        for (int i = 0; i <= counter; i++) {
+            builder.append(";").append(i).append("%");
+            if (i <= 25) {
+                builder.append("_[i]");
+            } else if (i <= 50) {
+                builder.append("_[j]");
+            } else if (i <= 75) {
+                builder.append("_[k]");
+            }
+        }
+
+        return builder.toString();
+    }
+
 
     private static void processAllocEvent(JfrParsedFile jfrParsedFile, List<PreStackFilter> preStackFilters, EventArray eventArray, boolean outsideTlab) {
         IMemberAccessor<IQuantity, IItem> startTimeAccessor = JfrAttributes.START_TIME.getAccessor(eventArray.getType());

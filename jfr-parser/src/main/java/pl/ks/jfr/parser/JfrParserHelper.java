@@ -15,8 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.util.List;
-import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -27,8 +25,12 @@ import org.openjdk.jmc.common.item.IAccessorKey;
 import org.openjdk.jmc.common.item.IItem;
 import org.openjdk.jmc.common.item.IMemberAccessor;
 import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
+
+import java.util.List;
+import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -59,6 +61,14 @@ class JfrParserHelper {
         if (event.getType() instanceof StructContentType) {
             StructContentType structContentType = (StructContentType) event.getType();
             return structContentType.getIdentifier().equals("jdk.ExecutionSample");
+        }
+        return false;
+    }
+
+    static boolean isCpuLoadEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("jdk.CPULoad");
         }
         return false;
     }
@@ -116,6 +126,33 @@ class JfrParserHelper {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("monitorClass")) {
                 return (IMemberAccessor<IMCType, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<ITypedQuantity, IItem> findCpuJvmUserAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("jvmUser")) {
+                return (IMemberAccessor<ITypedQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<ITypedQuantity, IItem> findCpuJvmSystemAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("jvmSystem")) {
+                return (IMemberAccessor<ITypedQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<ITypedQuantity, IItem> findMachineTotalAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("machineTotal")) {
+                return (IMemberAccessor<ITypedQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
             }
         }
         return null;

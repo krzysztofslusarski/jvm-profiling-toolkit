@@ -16,6 +16,10 @@ public class ThreadNameFilter implements PreStackFilter {
     public boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
                                  IMemberAccessor<IMCThread, IItem> threadAccessor,
                                  IItem event) {
+        if (threadAccessor == null) {
+            return true;
+        }
+
         String threadName = threadAccessor.getMember(event).getThreadName().toLowerCase();
         return threadName.equalsIgnoreCase(this.threadName);
     }
