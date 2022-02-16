@@ -1,10 +1,8 @@
 # Java profiling toolkit
 Viewer for collapsed stack and JFR outputs of profiles. Dedicated to Async-profiler 2.x, but
 works also with Async-profiler 1.x and Java Flight Recorder.
-
-## How to install - from binaries
-Simply download latest release from `https://github.com/krzysztofslusarski/java-profiling-toolkit/releases`.
-
+[//]: # (## How to install - from binaries)
+[//]: # (Simply download latest release from `https://github.com/krzysztofslusarski/java-profiling-toolkit/releases`.)
 ## How to install - from sources
 ```shell script
 git clone --depth 1 https://github.com/krzysztofslusarski/java-profiling-toolkit.git
