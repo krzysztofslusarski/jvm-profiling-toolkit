@@ -6,7 +6,7 @@ works also with Async-profiler 1.x and Java Flight Recorder.
 ## How to install - from sources
 ```shell script
 git clone --depth 1 https://github.com/krzysztofslusarski/java-profiling-toolkit.git
-cd viewer/
+cd java-profiling-toolkit/
 mvn clean package
 ```
 
