@@ -18,6 +18,7 @@ public class JfrParsedFile {
     CollapsedStack cpuLoadJvmSystem = new CollapsedStack();
     CollapsedStack cpuLoadJvmUser = new CollapsedStack();
     CollapsedStack cpuLoadMachineTotal = new CollapsedStack();
+    CollapsedStack cpuLoadMachineTotalMinusJvmTotal = new CollapsedStack();
 
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();
@@ -44,6 +45,8 @@ public class JfrParsedFile {
                 return cpuLoadJvmUser;
             case CPU_LOAD_MACHINE_TOTAL:
                 return cpuLoadMachineTotal;
+            case CPU_LOAD_MACHINE_TOTAL_MINUS_JVM_TOTAL:
+                return cpuLoadMachineTotalMinusJvmTotal;
         }
 
         throw new RuntimeException("?");
@@ -51,16 +54,21 @@ public class JfrParsedFile {
 
     @RequiredArgsConstructor
     public enum Type {
-        WALL("wall"),
-        CPU("cpu"),
-        ALLOC_COUNT("alloc count"),
-        ALLOC_SIZE("alloc size"),
-        LOCK("lock"),
-        CPU_LOAD_JVM_TOTAL("cpu load - jvm total"),
-        CPU_LOAD_JVM_SYSTEM("cpu load - jvm system"),
-        CPU_LOAD_JVM_USER("cpu load - jvm user"),
-        CPU_LOAD_MACHINE_TOTAL("cpu load - machine total");
+        WALL("Wall-clock"),
+        CPU("CPU"),
+        ALLOC_COUNT("Heap allocation (count)"),
+        ALLOC_SIZE("Heap allocation (size)"),
+        LOCK("Locks"),
+        CPU_LOAD_JVM_TOTAL("CPU load (JVM total)"),
+        CPU_LOAD_JVM_SYSTEM("CPU load (JVM system)"),
+        CPU_LOAD_JVM_USER("CPU load (JVM user)"),
+        CPU_LOAD_MACHINE_TOTAL("CPU load (machine total)"),
+        CPU_LOAD_MACHINE_TOTAL_MINUS_JVM_TOTAL("CPU load (machine total - jvm total)");
 
         private final String name;
+
+        public String getName() {
+            return name;
+        }
     }
 }

@@ -201,14 +201,18 @@ class JfrParserImpl implements JfrParser {
             int scaledJvmTotal = scaledJvmSystem + scaledJvmUser;
             int scaledMachineTotal = BigDecimal.valueOf(machineTotal.doubleValue()).multiply(PERCENT_MULTIPLIER).setScale(0, RoundingMode.HALF_EVEN).intValue();
 
-            jfrParsedFile.getCpuLoadJvmUser().addSingleStack(createCpuLoadStack("JVM User", scaledJvmUser));
-            jfrParsedFile.getCpuLoadJvmSystem().addSingleStack(createCpuLoadStack("JVM System", scaledJvmSystem));
-            jfrParsedFile.getCpuLoadJvmTotal().addSingleStack(createCpuLoadStack("JVM Total", scaledJvmTotal));
-            jfrParsedFile.getCpuLoadMachineTotal().addSingleStack(createCpuLoadStack("Machine Total", scaledMachineTotal));
+            jfrParsedFile.getCpuLoadJvmUser().addSingleStack(createCpuLoadStack("JVM user", scaledJvmUser));
+            jfrParsedFile.getCpuLoadJvmSystem().addSingleStack(createCpuLoadStack("JVM system", scaledJvmSystem));
+            jfrParsedFile.getCpuLoadJvmTotal().addSingleStack(createCpuLoadStack("JVM total", scaledJvmTotal));
+            jfrParsedFile.getCpuLoadMachineTotal().addSingleStack(createCpuLoadStack("Machine total", scaledMachineTotal));
+            jfrParsedFile.getCpuLoadMachineTotalMinusJvmTotal().addSingleStack(createCpuLoadStack("Machine total - JVM total", scaledMachineTotal - scaledJvmTotal));
         });
     }
 
     private static String createCpuLoadStack(String prefix, int counter) {
+        if (counter < 0) {
+            counter = 0;
+        }
         StringBuilder builder = new StringBuilder(prefix);
 
         for (int i = 0; i <= counter; i++) {

@@ -1,5 +1,6 @@
 # Java profiling toolkit
-Viewer for collapsed stack and JFR outputs of profiles. Dedicated to async-profiler.
+Viewer for collapsed stack and JFR outputs of profiles. Dedicated to Async-profiler 2.x, but
+works also with Async-profiler 1.x and Java Flight Recorder.
 
 ## How to install - from binaries
 Simply download latest release from `https://github.com/krzysztofslusarski/java-profiling-toolkit/releases`.
@@ -26,7 +27,7 @@ server:
   port: 8079 
 ```
 
-## Example usage od async-profiler for collapsed stack
+## Example usage od Async-profiler for collapsed stack
 `
 ./profiler -t -d 30 -e cpu -o collapsed -f output.txt <pid>
 `
@@ -39,7 +40,7 @@ server:
 * `<pid>` - pid of your JVM
 
 ## Features of viewer
-### Analysis of 1 file
+### Analysis of collapsed stack file
 #### Flame graphs
 ![Flame graphs](images/flame-graphs.png)
 
@@ -60,10 +61,53 @@ Total time is number of stacks, that method was anywhere on the stack. Method na
 Self time is number of stacks, that method was at the end of the stack. Method name can be filtered.      
 
 #### Callee and callers flame graphs for methods
-![Callee](images/callee.svg)
+![Callee](images/callee.png)
 
 Callee graph shows what method is actually doing. This graph is aggregated, so it shows every usage of method.
 
-![Callee](images/callers.svg)
+![Callee](images/callers.png)
 
 Callers graph shows what which method used profiled method. This graph is aggregated, so it shows every usage of method.
+
+### Analysis of JFR files
+
+You can add filters to your parser:
+* Thread filter
+* Access log style filter - end date and duration (in milliseconds)
+* Warmup / cooldown filter - this one skips proper number of seconds from the beginning and the end
+
+#### Collapsed stack files
+
+You can upload multiple JFR files with a single HTTP POST to the analyzer. Analyzer creates following 
+collapsed stack from your JFR file:
+* Wall-clock - if you used Async-profiler in ```wall``` mode only
+* CPU - if you used Async-profiler in ```wall``` mode the CPU file is made from ```wall``` output with 
+  stacks that were consuming CPU only
+* Heap allocation (count) - if you used ```alloc``` mode - this one presents count of allocations that
+  needed new TLAB or needed allocation outside TLAB 
+* Heap allocation (size) - if you used ```alloc``` mode - this one presents size of allocations mentioned
+  above
+* Locks - if you used ```lock``` mode
+* CPU load
+  * JVM system
+  * JVM user
+  * JVM total
+  * Machine total
+  * Machine total - JVM total 
+
+##### CPU usage flame graphs
+
+![Cpu usage](images/cpuusage.png)
+
+On example above you can see that the CPU (this one is JVM total) consumed at least **30%** of the CPU 
+for **71,21%** of time.
+
+#### Other JFR information
+
+JFR viewer will also show you:
+* OS Info
+* CPU Info
+* Initial system properties
+* JVM Info
+
+If you upload multiple files then last information parsed is present in those sections.

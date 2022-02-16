@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
+body {
+    background: #e5e5e5;
+}
+
+.card-title {
+    text-align: center;
+    font-weight: 430 !important;
+}
+
 .jfr-info {
     white-space: pre-wrap;
-    word-break:break-all;
+    word-break: break-all;
     margin-left: 12px;
     margin-right: 12px;
+    font-size: 12px;
 }

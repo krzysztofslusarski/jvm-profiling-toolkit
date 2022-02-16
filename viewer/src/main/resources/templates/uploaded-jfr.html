@@ -28,23 +28,22 @@
 
 <div class="container">
     <div class="row">
-        <div class="col s12">
-            <h5>JFR viewer</h5>
-        </div>
-
-        <div class="col s12">
-            <h6>Choose mode: </h6>
+        <div class="col s12 center-align">
+            <h3>JFR viewer</h3>
         </div>
 
         <div class="col s12">
             <div class="card">
                 <div class="card-content">
+                    <div class="card-title">
+                        Choose mode
+                    </div>
                     <form method="POST" enctype="multipart/form-data" action="/upload-temp" target="_blank">
                         <div class="row" th:inline="text">
-                            <div class="input-field col s2">
+                            <div class="input-field col s4">
                                 <select id="tempFile" name="tempFile" class="browser-default">
                                     <option th:each="file: ${collapsed}" th:value="${file.getValue()}" th:inline="text">
-                                        [[${file.getKey()}]]
+                                        [[${file.getKey().getName()}]]
                                     </option>
                                 </select>
                             </div>
@@ -95,7 +94,7 @@
             </div>
         </div>
 
-        <div class="col s12">
+        <div class="col s12" th:if="${!jfr.getJvmInfo().isEmpty()}">
             <div class="card">
                 <div class="card-content">
                     <span class="card-title">
@@ -109,7 +108,7 @@
             </div>
         </div>
 
-        <div class="col s12">
+        <div class="col s12" th:if="${!jfr.getInitialSystemProperties().isEmpty()}">
             <div class="card">
                 <div class="card-content">
                     <span class="card-title">
@@ -123,7 +122,7 @@
             </div>
         </div>
 
-        <div class="col s12">
+        <div class="col s12" th:if="${!jfr.getCpuInfo().isEmpty()}">
             <div class="card">
                 <div class="card-content">
                     <span class="card-title">
@@ -137,7 +136,7 @@
             </div>
         </div>
 
-        <div class="col s12">
+        <div class="col s12" th:if="${!jfr.getOsInfo().isEmpty()}">
             <div class="card">
                 <div class="card-content">
                     <span class="card-title">

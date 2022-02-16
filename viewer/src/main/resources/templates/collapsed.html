@@ -21,6 +21,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="/css/upload-materialized.css" rel="stylesheet">
     <script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -31,8 +32,8 @@
 <div class=container>
     <div class="row">
         <div class="starter-template">
-            <div class="col s12">
-                <h5 th:inline="text">[[${welcomePage.title}]]</h5>
+            <div class="col s12 center-align">
+                <h3 th:inline="text">[[${welcomePage.title}]]</h3>
             </div>
 
             <div th:each="page, pagesStatus: ${welcomePage.pages}"
@@ -40,7 +41,7 @@
                  th:inline="text">
                 <div class="card">
                     <div class="card-content">
-                        <span th:class="'card-title card-title-' + ${pagesStatus.index}">[[${page.fullName}]]</span>
+                        <div th:class="'card-title card-title-' + ${pagesStatus.index}">[[${page.fullName}]]</div>
                         <span th:if="${page.info != null}">[[${page.info}]]</span>
                         <div th:each="content, contentStatus: ${page.pageContents}" th:inline="text" th:class="'card-content-' + ${pagesStatus.index}">
                             <h5 th:if="${content.title != null}">[[${content.title}]]</h5>
@@ -104,10 +105,10 @@
                                     </thead>
                                     <tbody>
                                     <tr th:each="row, rowStatus: ${content.profilingEntries}">
-                                        <td>[[${row.methodName}]]</td>
-                                        <td>[[${row.percent}]]</td>
-                                        <td>[[${row.samples}]]</td>
-                                        <td>
+                                        <td style="word-wrap: anywhere">[[${row.methodName}]]</td>
+                                        <td style="white-space: nowrap">[[${row.percent}]]</td>
+                                        <td style="white-space: nowrap">[[${row.samples}]]</td>
+                                        <td style="white-space: nowrap">
                                             <img src="img/flame.png" height="20"/>
                                             &nbsp;
                                             <a target="_blank" th:href="${row.profilingLinks.fromMethodFlameGraph}"><img src="img/up.png" height="20"/></a>

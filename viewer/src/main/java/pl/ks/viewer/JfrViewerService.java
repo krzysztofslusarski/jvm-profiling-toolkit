@@ -38,9 +38,14 @@ class JfrViewerService {
 
         JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths));
         Map<JfrParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();
+        boolean ignoreWall = parsedFile.getCpu().hasSameSizes(parsedFile.getWall());
+
         for (JfrParsedFile.Type type : JfrParsedFile.Type.values()) {
             CollapsedStack collapsedStack = parsedFile.get(type);
             if (collapsedStack.isNotEmpty()) {
+                if (ignoreWall && type == JfrParsedFile.Type.WALL) {
+                    continue;
+                }
                 String fileName = "collapsed-" + UUID.randomUUID() + ".log";
                 CollapsedStackWriter.saveFile(TempFileUtils.TEMP_DIR, fileName, collapsedStack);
                 collapsedFiles.put(type, fileName);
