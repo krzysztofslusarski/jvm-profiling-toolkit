@@ -98,17 +98,17 @@
                                     <thead>
                                     <tr>
                                         <th>Method</th>
-                                        <th>Time%</th>
-                                        <th>No of samples</th>
-                                        <th>Links</th>
+                                        <th class="center-align">Time%</th>
+                                        <th class="center-align">No of samples</th>
+                                        <th class="center-align">Links</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     <tr th:each="row, rowStatus: ${content.profilingEntries}">
                                         <td style="word-wrap: anywhere">[[${row.methodName}]]</td>
-                                        <td style="white-space: nowrap">[[${row.percent}]]</td>
-                                        <td style="white-space: nowrap">[[${row.samples}]]</td>
-                                        <td style="white-space: nowrap">
+                                        <td class="center-align" style="white-space: nowrap">[[${row.percent}]]</td>
+                                        <td class="center-align" style="white-space: nowrap">[[${row.samples}]]</td>
+                                        <td class="center-align" style="white-space: nowrap">
                                             <img src="img/flame.png" height="20"/>
                                             &nbsp;
                                             <a target="_blank" th:href="${row.profilingLinks.fromMethodFlameGraph}"><img src="img/up.png" height="20"/></a>
