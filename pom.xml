@@ -12,6 +12,7 @@
         <module>jfr-parser</module>
         <module>common</module>
         <module>viewer-application</module>
+        <module>jvm-logs</module>
     </modules>
 
     <parent>
@@ -24,7 +25,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <commons-math3.version>3.2</commons-math3.version>
         <poi.version>4.1.0</poi.version>
         <commons-compress.version>1.19</commons-compress.version>
