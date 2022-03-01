@@ -12,6 +12,7 @@
         <module>jfr-parser</module>
         <module>common</module>
         <module>viewer-application</module>
+        <module>jvm-logs-parser</module>
     </modules>
 
     <parent>
@@ -33,6 +34,7 @@
         <xchart.version>3.6.0</xchart.version>
         <miglayout-swing.version>5.0</miglayout-swing.version>
         <flightrecorder.version>8.1.0</flightrecorder.version>
+        <gctoolkit.version>2.0.4</gctoolkit.version>
     </properties>
 
     <dependencyManagement>
@@ -97,6 +99,24 @@
                 <groupId>pl.ks.profiling</groupId>
                 <artifactId>viewer</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.gctoolkit</groupId>
+                <artifactId>gctoolkit-api</artifactId>
+                <version>${gctoolkit.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.gctoolkit</groupId>
+                <artifactId>gctoolkit-parser</artifactId>
+                <version>${gctoolkit.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.gctoolkit</groupId>
+                <artifactId>gctoolkit-vertx</artifactId>
+                <version>${gctoolkit.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
