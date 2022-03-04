@@ -34,6 +34,7 @@
         <xchart.version>3.6.0</xchart.version>
         <miglayout-swing.version>5.0</miglayout-swing.version>
         <flightrecorder.version>8.1.0</flightrecorder.version>
+        <junit-jupiter-engine.version>5.8.1</junit-jupiter-engine.version>
     </properties>
 
     <dependencyManagement>
@@ -99,6 +100,12 @@
                 <artifactId>viewer</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit-jupiter-engine.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -107,6 +114,16 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
