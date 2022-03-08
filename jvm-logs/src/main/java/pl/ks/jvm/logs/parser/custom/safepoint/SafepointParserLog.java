@@ -1,11 +1,12 @@
 package pl.ks.jvm.logs.parser.custom.safepoint;
 
-import pl.ks.jvm.logs.model.safepoint.SafepointLog;
-import pl.ks.jvm.logs.model.safepoint.SafepointOperationLog;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import pl.ks.jvm.logs.model.Time;
+import pl.ks.jvm.logs.model.Timestamp;
+import pl.ks.jvm.logs.model.safepoint.SafepointLog;
+import pl.ks.jvm.logs.model.safepoint.SafepointOperationLog;
 
 class SafepointParserLog {
     List<SafepointParserOperationLog> safepoints = new ArrayList<>();
@@ -62,12 +63,13 @@ class SafepointParserLog {
 
     SafepointOperationLog map(SafepointParserOperationLog safepointParserOperationLog) {
         return SafepointOperationLog.builder()
-                .applicationTime(safepointParserOperationLog.getApplicationTime())
-                .stoppedTime(safepointParserOperationLog.getStoppedTime())
-                .ttsTime(safepointParserOperationLog.getTtsTime())
+                .applicationTime(Time.of(safepointParserOperationLog.getApplicationTime(), Time.Unit.SECONDS))
+                .stoppedTime(Time.of(safepointParserOperationLog.getStoppedTime(), Time.Unit.SECONDS))
+                .ttsTime(Time.of(safepointParserOperationLog.getTtsTime(), Time.Unit.SECONDS))
                 .sequenceId(safepointParserOperationLog.getSequenceId())
-                .timeStamp(safepointParserOperationLog.getTimeStamp())
+                .timeStamp(Timestamp.of(safepointParserOperationLog.getTimeStamp()))
                 .operationName(safepointParserOperationLog.getOperationName())
                 .build();
     }
+
 }

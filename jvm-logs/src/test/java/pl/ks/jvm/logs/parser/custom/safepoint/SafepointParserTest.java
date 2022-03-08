@@ -23,11 +23,11 @@ class SafepointParserTest {
         assertEquals(1, safepointLog.getSafepoints().size());
 
         SafepointOperationLog safepointOperationLog = safepointLog.getSafepoints().get(0);
-        assertEquals(new BigDecimal("0.036"), safepointOperationLog.getTimeStamp());
+        assertEquals(new BigDecimal("0.036"), safepointOperationLog.getTimeStamp().getValue());
         assertEquals("RevokeBias", safepointOperationLog.getOperationName());
-        assertEquals(new BigDecimal("0.0000146"), safepointOperationLog.getTtsTime());
-        assertEquals(new BigDecimal("0.0000551"), safepointOperationLog.getStoppedTime());
-        assertEquals(new BigDecimal("0.0006619"), safepointOperationLog.getApplicationTime());
+        assertEquals(new BigDecimal("0.0000146"), safepointOperationLog.getTtsTime().toSeconds().getValue());
+        assertEquals(new BigDecimal("0.0000551"), safepointOperationLog.getStoppedTime().toSeconds().getValue());
+        assertEquals(new BigDecimal("0.0006619"), safepointOperationLog.getApplicationTime().toSeconds().getValue());
     }
 
     @Test
@@ -73,11 +73,11 @@ class SafepointParserTest {
         assertEquals(1, safepointLog.getSafepoints().size());
 
         SafepointOperationLog safepointOperationLog = safepointLog.getSafepoints().get(0);
-        assertEquals(new BigDecimal("0.826"), safepointOperationLog.getTimeStamp());
+        assertEquals(new BigDecimal("0.826"), safepointOperationLog.getTimeStamp().getValue());
         assertEquals("G1Concurrent", safepointOperationLog.getOperationName());
-        assertEquals(new BigDecimal("0.0000936100"), safepointOperationLog.getTtsTime());
-        assertEquals(new BigDecimal("0.0010492940"), safepointOperationLog.getStoppedTime());
-        assertEquals(new BigDecimal("0.0078807510"), safepointOperationLog.getApplicationTime());
+        assertEquals(new BigDecimal("0.0000936100"), safepointOperationLog.getTtsTime().toSeconds().getValue());
+        assertEquals(new BigDecimal("0.0010492940"), safepointOperationLog.getStoppedTime().toSeconds().getValue());
+        assertEquals(new BigDecimal("0.0078807510"), safepointOperationLog.getApplicationTime().toSeconds().getValue());
     }
 
     @Test
@@ -97,7 +97,6 @@ class SafepointParserTest {
         for (String line : log.split("\n")) {
             parser.parseLine(line.trim());
         }
-        SafepointLog safepointLog = parser.get();
-        return safepointLog;
+        return parser.get();
     }
 }
