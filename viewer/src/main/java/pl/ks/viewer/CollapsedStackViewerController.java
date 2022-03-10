@@ -15,19 +15,6 @@
  */
 package pl.ks.viewer;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.commons.compress.utils.IOUtils;
@@ -44,6 +31,20 @@ import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 import pl.ks.viewer.io.StorageUtils;
 import pl.ks.viewer.io.TempFileUtils;
 import pl.ks.viewer.pages.WelcomePage;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -81,13 +82,20 @@ class CollapsedStackViewerController {
 
     @PostMapping("/upload-temp")
     String uploadTemp(Model model,
-                  @RequestParam("tempFile") String tempFile,
-                  @RequestParam("filter") String filter,
-                  @RequestParam("title") String title,
-                  @RequestParam("totalTimeThreshold") BigDecimal totalTimeThreshold,
-                  @RequestParam("selfTimeThreshold") BigDecimal selfTimeThreshold) throws Exception {
+                      @RequestParam("tempFile") String tempFile,
+                      @RequestParam("filter") String filter,
+                      @RequestParam("title") String title,
+                      @RequestParam("totalTimeThreshold") BigDecimal totalTimeThreshold,
+                      @RequestParam("selfTimeThreshold") BigDecimal selfTimeThreshold) throws Exception {
+        String targetFile = null;
+        if (StringUtils.isEmpty(filter)) {
+            targetFile = tempFile;
+        } else {
+            targetFile = "collapsed-stack-" + UUID.randomUUID().toString() + ".log";
+            copyFileWithFilter(filter, new FileInputStream(TempFileUtils.TEMP_DIR + tempFile), targetFile);
+        }
         model.addAttribute("welcomePage", WelcomePage.builder()
-                .pages(collapsedStackPageCreator.generatePages(tempFile, title, totalTimeThreshold, selfTimeThreshold))
+                .pages(collapsedStackPageCreator.generatePages(targetFile, title, totalTimeThreshold, selfTimeThreshold))
                 .title(title)
                 .build());
         return "collapsed";
