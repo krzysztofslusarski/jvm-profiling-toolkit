@@ -292,7 +292,7 @@ class JfrParserImpl implements JfrParser {
                                               IItem event) {
         for (PreStackFilter preStackFilter : preStackFilters) {
             if (!preStackFilter.shouldInclude(startTimeAccessor, threadAccessor, event)) {
-                return false;
+                return true;
             }
         }
         return false;

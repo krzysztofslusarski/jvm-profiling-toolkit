@@ -2,6 +2,7 @@ package pl.ks.viewer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import pl.ks.collapsed.CollapsedStack;
 import pl.ks.collapsed.CollapsedStackWriter;
 import pl.ks.jfr.parser.JfrParsedFile;
@@ -23,12 +24,16 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 class JfrViewerService {
+    private static final SimpleDateFormat OUTPUT_FORMAT = new SimpleDateFormat("dd/MMM/yyyy:HH:mm:ss Z", Locale.US);
+
     private final JfrParser jfrParser;
 
     JfrViewerResult convertToCollapsed(List<String> files, JfrViewerFilterConfig config) throws IOException {
@@ -88,7 +93,12 @@ class JfrViewerService {
                             .build()
             );
         } else if (config.isWarmupCooldownOn()) {
+            log.info("Warmup: {}, cooldown: {}", config.getWarmup(), config.getCooldown());
             StartEndDate startEndDate = jfrParser.calculateDatesWithCoolDownAndWarmUp(paths.stream(), config.getWarmup(), config.getCooldown());
+
+            log.info("Start date in access log format: {}", OUTPUT_FORMAT.format(new Date(startEndDate.getStartDate().toEpochMilli())));
+            log.info("End date in access log format: {}", OUTPUT_FORMAT.format(new Date(startEndDate.getEndDate()   .toEpochMilli())));
+
             filters.add(
                     StartEndDateFilter.builder()
                             .startDate(startEndDate.getStartDate())
