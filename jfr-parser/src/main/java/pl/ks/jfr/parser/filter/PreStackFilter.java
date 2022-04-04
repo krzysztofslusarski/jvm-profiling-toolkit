@@ -8,5 +8,6 @@ import org.openjdk.jmc.common.unit.IQuantity;
 public interface PreStackFilter {
     boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
                           IMemberAccessor<IMCThread, IItem> threadAccessor,
+                          IMemberAccessor<String, IItem> ecidAccessor,
                           IItem event);
 }

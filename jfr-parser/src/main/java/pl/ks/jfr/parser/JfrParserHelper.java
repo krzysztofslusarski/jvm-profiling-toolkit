@@ -15,6 +15,8 @@
  */
 package pl.ks.jfr.parser;
 
+import java.util.List;
+import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -28,9 +30,6 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
-
-import java.util.List;
-import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -148,6 +147,15 @@ class JfrParserHelper {
     static IMemberAccessor<String, IItem> findStateAccessor(EventArray eventArray) {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("state")) {
+                return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<String, IItem> findEcidAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("ecid")) {
                 return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
             }
         }

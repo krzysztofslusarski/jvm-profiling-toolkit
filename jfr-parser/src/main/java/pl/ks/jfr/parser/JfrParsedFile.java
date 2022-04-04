@@ -1,11 +1,10 @@
 package pl.ks.jfr.parser;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import pl.ks.collapsed.CollapsedStack;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Value
 public class JfrParsedFile {
@@ -19,6 +18,8 @@ public class JfrParsedFile {
     CollapsedStack cpuLoadJvmUser = new CollapsedStack();
     CollapsedStack cpuLoadMachineTotal = new CollapsedStack();
     CollapsedStack cpuLoadMachineTotalMinusJvmTotal = new CollapsedStack();
+
+    Map<String, JfrEcidInfo> ecidInfo = new ConcurrentHashMap<>();
 
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();

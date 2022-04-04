@@ -15,6 +15,7 @@ public class ThreadNameFilter implements PreStackFilter {
     @Override
     public boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
                                  IMemberAccessor<IMCThread, IItem> threadAccessor,
+                                 IMemberAccessor<String, IItem> ecidAccessor,
                                  IItem event) {
         if (threadAccessor == null) {
             return true;

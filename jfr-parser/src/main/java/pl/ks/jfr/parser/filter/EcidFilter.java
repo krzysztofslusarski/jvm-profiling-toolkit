@@ -1,6 +1,5 @@
 package pl.ks.jfr.parser.filter;
 
-import java.time.Instant;
 import lombok.Builder;
 import lombok.Value;
 import org.openjdk.jmc.common.IMCThread;
@@ -10,17 +9,19 @@ import org.openjdk.jmc.common.unit.IQuantity;
 
 @Value
 @Builder
-public class StartEndDateFilter implements PreStackFilter{
-    Instant startDate;
-    Instant endDate;
+public class EcidFilter implements PreStackFilter {
+    String ecid;
 
     @Override
     public boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
                                  IMemberAccessor<IMCThread, IItem> threadAccessor,
                                  IMemberAccessor<String, IItem> ecidAccessor,
                                  IItem event) {
-        long startTimestamp = startTimeAccessor.getMember(event).longValue();
-        Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
-        return !(eventDate.isBefore(startDate) || eventDate.isAfter(endDate));
+        if (ecidAccessor == null) {
+            return true;
+        }
+
+        String ecid = ecidAccessor.getMember(event);
+        return ecid.equalsIgnoreCase(this.ecid);
     }
 }
