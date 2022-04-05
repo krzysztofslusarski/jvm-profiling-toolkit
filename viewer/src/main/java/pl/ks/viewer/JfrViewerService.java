@@ -105,6 +105,18 @@ class JfrViewerService {
                             .endDate(startEndDate.getEndDate())
                             .build()
             );
+        } else if (config.isWarmupDurationOn()) {
+            log.info("Warmup: {}, duration: {}", config.getWdWarmup(), config.getWdDuration());
+            StartEndDate startEndDate = jfrParser.calculateDatesWithCoolDownAndWarmUp(paths.stream(), config.getWdWarmup(), 0);
+
+            log.info("Start date in access log format: {}", OUTPUT_FORMAT.format(new Date(startEndDate.getStartDate().toEpochMilli())));
+
+            filters.add(
+                    StartEndDateFilter.builder()
+                            .startDate(startEndDate.getStartDate())
+                            .endDate(startEndDate.getStartDate().plus(config.getWdDuration(), ChronoUnit.SECONDS))
+                            .build()
+            );
         }
 
         return filters;

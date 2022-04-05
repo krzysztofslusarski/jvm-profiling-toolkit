@@ -114,12 +114,33 @@
                         <div id="warmupCooldownContent" style="display: none">
                             <div class="row">
                                 <div class="input-field col s6">
+                                    <input id="warmup" name="warmup" type="text"/>
+                                    <label for="warmup">Warmup (s)</label>
+                                </div>
+                                <div class="input-field col s6">
                                     <input id="cooldown" name="cooldown" type="text"/>
                                     <label for="cooldown">Cooldown (s)</label>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox"/>
+                                    <span>Warmup/duration filter enabled (skips part of JFR file from the beginning)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="warmupDurationContent" style="display: none">
+                            <div class="row">
                                 <div class="input-field col s6">
-                                    <input id="warmup" name="warmup" type="text"/>
-                                    <label for="warmup">Warmup (s)</label>
+                                    <input id="wdWarmup" name="wdWarmup" type="text"/>
+                                    <label for="wdWarmup">Warmup (s)</label>
+                                </div>
+                                <div class="input-field col s6">
+                                    <input id="wdDuration" name="wdDuration" type="text"/>
+                                    <label for="wdDuration">Duration (s)</label>
                                 </div>
                             </div>
                         </div>
@@ -153,7 +174,9 @@
         if ($(this).prop('checked')) {
             $("#endDurationContent").show();
             $("#warmupCooldownOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
             $("#warmupCooldownContent").hide();
+            $("#warmupDurationContent").hide();
         } else {
             $("#endDurationContent").hide();
         }
@@ -162,9 +185,22 @@
         if ($(this).prop('checked')) {
             $("#warmupCooldownContent").show();
             $("#endDurationOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
             $("#endDurationContent").hide();
+            $("#warmupDurationContent").hide();
         } else {
             $("#warmupCooldownContent").hide();
+        }
+    });
+    $("#warmupDurationOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#warmupDurationContent").show();
+            $("#endDurationOn").prop("checked", false);
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#endDurationContent").hide();
+            $("#warmupCooldownContent").hide();
+        } else {
+            $("#warmupDurationContent").hide();
         }
     });
 </script>
