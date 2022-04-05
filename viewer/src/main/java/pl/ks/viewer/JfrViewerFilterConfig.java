@@ -15,4 +15,7 @@ public class JfrViewerFilterConfig {
     boolean warmupCooldownOn;
     int cooldown;
     int warmup;
+    boolean warmupDurationOn;
+    int wdWarmup;
+    long wdDuration;
 }

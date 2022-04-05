@@ -86,6 +86,14 @@ class JfrViewerController {
                     .warmup(Integer.parseInt(params.get("warmup")));
         }
 
+        boolean warmupDurationOn = "on".equals(params.get("warmupDurationOn"));
+        builder.warmupDurationOn(warmupDurationOn);
+        if (warmupDurationOn) {
+            builder
+                    .wdDuration(Long.parseLong(params.get("wdDuration")))
+                    .wdWarmup(Integer.parseInt(params.get("wdWarmup")));
+        }
+
         return builder.build();
     }
 }
