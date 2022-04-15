@@ -49,7 +49,7 @@ class JfrViewerController {
         for (MultipartFile file : files) {
             String originalFilename = file.getOriginalFilename();
             boolean isGZip = originalFilename != null && originalFilename.endsWith(".gz");
-            String fileName = "jfr-" + UUID.randomUUID().toString() + ".jfr" +
+            String fileName = originalFilename + "jfr-" + UUID.randomUUID().toString() + ".jfr" +
                     (isGZip ? ".gz" : "");
             String filePath = TempFileUtils.TEMP_DIR + fileName;
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
@@ -92,6 +92,19 @@ class JfrViewerController {
             builder
                     .wdDuration(Long.parseLong(params.get("wdDuration")))
                     .wdWarmup(Integer.parseInt(params.get("wdWarmup")));
+        }
+
+        boolean ecidFilterOn = "on".equals(params.get("ecidFilterOn"));
+        builder.ecidFilterOn(ecidFilterOn);
+        if (ecidFilterOn) {
+            builder.ecidFilter(params.get("ecidFilter"));
+        }
+
+        boolean startEndTimestampOn = "on".equals(params.get("startEndTimestampOn"));
+        builder.startEndTimestampOn(startEndTimestampOn);
+        if (startEndTimestampOn) {
+            builder.startTs(Long.parseLong(params.get("startTs")));
+            builder.endTs(Long.parseLong(params.get("endTs")));
         }
 
         return builder.build();

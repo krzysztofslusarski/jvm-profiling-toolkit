@@ -18,4 +18,9 @@ public class JfrViewerFilterConfig {
     boolean warmupDurationOn;
     int wdWarmup;
     long wdDuration;
+    boolean ecidFilterOn;
+    String ecidFilter;
+    boolean startEndTimestampOn;
+    long startTs;
+    long endTs;
 }

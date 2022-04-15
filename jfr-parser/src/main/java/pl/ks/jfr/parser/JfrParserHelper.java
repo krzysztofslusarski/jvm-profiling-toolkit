@@ -15,8 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.util.List;
-import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -30,6 +28,10 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -104,11 +106,18 @@ class JfrParserHelper {
         return false;
     }
 
-    static String fetchFlatStackTrace(IItem event, IMemberAccessor<IMCStackTrace, IItem> stackTraceAccessor, IMemberAccessor<IMCThread, IItem> threadAccessor) {
+    static String fetchFlatStackTrace(IItem event, IMemberAccessor<IMCStackTrace, IItem> stackTraceAccessor, IMemberAccessor<IMCThread, IItem> threadAccessor, IMemberAccessor<IQuantity, IItem> startTimeAccessor, String fileName) {
         String threadName = threadAccessor.getMember(event).getThreadName();
         List<? extends IMCFrame> frames = stackTraceAccessor.getMember(event).getFrames();
 
         StringBuilder builder = new StringBuilder();
+        IQuantity startTime = startTimeAccessor.getMember(event);
+        long time = startTime.longValue() / 1000000 / 1000;
+        builder.append(time).append(";");
+        builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 1000))).append(";");
+        if (fileName != null) {
+            builder.append(fileName).append(";");
+        }
         builder.append(threadName).append(";");
         for (int i = frames.size() - 1; i >= 0; i--) {
             IMCFrame frame = frames.get(i);

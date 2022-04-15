@@ -79,6 +79,23 @@
                         <div class="row">
                             <div class="input-field col s12">
                                 <label>
+                                    <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
+                                    <span>ECID filter enabled</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="ecidFilterContent" style="display: none">
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="ecidFilter" name="ecidFilter" type="text"/>
+                                    <label for=ecidFilter>ECID filter</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
                                     <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
                                     <span>End date and duration filter enabled (like access log)</span>
                                 </label>
@@ -99,6 +116,27 @@
                                 <div class="input-field col s6">
                                     <input id="duration" name="duration" type="text"/>
                                     <label for="duration">Duration (ms)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
+                                    <span>Start/end timestamp filter enabled</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="startEndTimestampContent" style="display: none">
+                            <div class="row">
+                                <div class="input-field col s6">
+                                    <input id="startTs" name="startTs" type="text"/>
+                                    <label for="startTs">Start timestamp (s)</label>
+                                </div>
+                                <div class="input-field col s6">
+                                    <input id="endTs" name="endTs" type="text"/>
+                                    <label for="endTs">Start timestamp (s)</label>
                                 </div>
                             </div>
                         </div>
@@ -170,11 +208,33 @@
             $("#threadFilterContent").hide();
         }
     });
+    $("#ecidFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#ecidFilterContent").show();
+        } else {
+            $("#ecidFilterContent").hide();
+        }
+    });
+    $("#startEndTimestampOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#startEndTimestampContent").show();
+            $("#endDurationOn").prop("checked", false);
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
+            $("#warmupCooldownContent").hide();
+            $("#warmupDurationContent").hide();
+            $("#endDurationContent").hide();
+        } else {
+            $("#startEndTimestampContent").hide();
+        }
+    });
     $("#endDurationOn").on("change", function () {
         if ($(this).prop('checked')) {
             $("#endDurationContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
             $("#warmupCooldownOn").prop("checked", false);
             $("#warmupDurationOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
             $("#warmupCooldownContent").hide();
             $("#warmupDurationContent").hide();
         } else {
@@ -184,8 +244,10 @@
     $("#warmupCooldownOn").on("change", function () {
         if ($(this).prop('checked')) {
             $("#warmupCooldownContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
             $("#endDurationOn").prop("checked", false);
             $("#warmupDurationOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
             $("#endDurationContent").hide();
             $("#warmupDurationContent").hide();
         } else {
@@ -195,8 +257,10 @@
     $("#warmupDurationOn").on("change", function () {
         if ($(this).prop('checked')) {
             $("#warmupDurationContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
             $("#endDurationOn").prop("checked", false);
             $("#warmupCooldownOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
             $("#endDurationContent").hide();
             $("#warmupCooldownContent").hide();
         } else {

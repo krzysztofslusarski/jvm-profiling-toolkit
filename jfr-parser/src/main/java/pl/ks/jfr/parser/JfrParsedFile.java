@@ -1,10 +1,14 @@
 package pl.ks.jfr.parser;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import pl.ks.collapsed.CollapsedStack;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Value
 public class JfrParsedFile {
@@ -25,6 +29,13 @@ public class JfrParsedFile {
     Map<String, String> osInfo = new ConcurrentHashMap<>();
     Map<String, String> jvmInfo = new ConcurrentHashMap<>();
     Map<String, String> initialSystemProperties = new ConcurrentHashMap<>();
+
+    public List<JfrEcidInfo> sortedEcidInfos(int limit) {
+        return ecidInfo.values().stream()
+                .sorted(Comparator.comparing(JfrEcidInfo::timeDiff).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
 
     public CollapsedStack get(Type type) {
         switch (type) {

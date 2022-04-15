@@ -94,6 +94,35 @@
             </div>
         </div>
 
+        <div class="col s12" th:if="${!jfr.getEcidInfo().isEmpty()}">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">
+                        ECID info - 1000 longest ECIDs
+                    </span>
+
+                    <table class="table table-striped table-bordered table-sm big-font">
+                        <thead>
+                        <tr>
+                            <th>ECID</th>
+                            <th>Time spent</th>
+                            <th>Wall samples</th>
+                            <th>CPU samples</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row, rowStatus: ${jfr.sortedEcidInfos(1000)}">
+                            <td th:inline="text">[[${row.getEcid()}]]</td>
+                            <td th:inline="text">[[${row.timeDiff()}]]</td>
+                            <td th:inline="text">[[${row.getWallSamples()}]]</td>
+                            <td th:inline="text">[[${row.getCpuSamples()}]]</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="col s12" th:if="${!jfr.getJvmInfo().isEmpty()}">
             <div class="card">
                 <div class="card-content">

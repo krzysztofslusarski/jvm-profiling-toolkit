@@ -9,19 +9,16 @@ import org.openjdk.jmc.common.unit.IQuantity;
 
 @Value
 @Builder
-public class EcidFilter implements PreStackFilter {
-    String ecid;
+public class StartEndTimestampFilter implements PreStackFilter{
+    long startTs;
+    long endTs;
 
     @Override
     public boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
                                  IMemberAccessor<IMCThread, IItem> threadAccessor,
                                  IMemberAccessor<String, IItem> ecidAccessor,
                                  IItem event) {
-        if (ecidAccessor == null) {
-            return false;
-        }
-
-        String ecid = ecidAccessor.getMember(event);
-        return this.ecid.equalsIgnoreCase(ecid);
+        long eventTs = startTimeAccessor.getMember(event).longValue() / 1000000 / 1000;
+        return !(eventTs < startTs || eventTs > endTs);
     }
 }

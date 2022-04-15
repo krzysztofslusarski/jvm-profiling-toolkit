@@ -126,7 +126,8 @@ class CollapsedStackViewerController {
     @GetMapping(value = "/flame-graph-no-thread", produces = "text/html")
     @ResponseBody
     byte[] getFlameGraphNoThread(@RequestParam("collapsed") String collapsed,
-                                 @RequestParam("title") String title) throws Exception {
+                                 @RequestParam("title") String title,
+                                 @RequestParam("skipped") int skipped) throws Exception {
         String collapsedFilepath = TempFileUtils.getFilePath(collapsed);
         String outputHtmlFilePath = TempFileUtils.getFilePath(collapsed + ".no-thread.html");
         String outputCollapsedFilePath = TempFileUtils.getFilePath(collapsed + "-no-thread.txt");
@@ -137,7 +138,10 @@ class CollapsedStackViewerController {
              BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));) {
             while (reader.ready()) {
                 String line = reader.readLine();
-                writer.write(line.substring(line.indexOf(";") + 1));
+                for (int i = 0; i < skipped; i++) {
+                    line = line.substring(line.indexOf(";") + 1);
+                }
+                writer.write(line);
                 writer.newLine();
             }
         }

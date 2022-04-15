@@ -15,13 +15,14 @@
  */
 package pl.ks.viewer.creator;
 
-import static pl.ks.viewer.pages.TableWithLinks.Link.of;
-
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import pl.ks.viewer.pages.Page;
 import pl.ks.viewer.pages.PageCreator;
 import pl.ks.viewer.pages.TableWithLinks;
+
+import java.util.List;
+
+import static pl.ks.viewer.pages.TableWithLinks.Link.of;
 
 @RequiredArgsConstructor
 public class FlameGraphsCreator implements PageCreator {
@@ -41,7 +42,10 @@ public class FlameGraphsCreator implements PageCreator {
                                 .table(
                                         List.of(
                                                 List.of(of(LinkUtils.getFlameGraphHref(collapsedStackFile, title), "Flame graph")),
-                                                List.of(of(LinkUtils.getNoThreadFlameGraphHref(collapsedStackFile, title), "Flame graph with no thread division")),
+                                                List.of(of(LinkUtils.getSkippedFlameGraphHref(collapsedStackFile, title, 1), "Flame graph with skipped 1 level")),
+                                                List.of(of(LinkUtils.getSkippedFlameGraphHref(collapsedStackFile, title, 2), "Flame graph with skipped 2 levels")),
+                                                List.of(of(LinkUtils.getSkippedFlameGraphHref(collapsedStackFile, title, 3), "Flame graph with skipped 3 levels")),
+                                                List.of(of(LinkUtils.getSkippedFlameGraphHref(collapsedStackFile, title, 4), "Flame graph with skipped 4 levels")),
                                                 List.of(of(LinkUtils.getHotspotFlameGraphHref(collapsedStackFile, title), "Hotspot flame graph")),
                                                 List.of(of(LinkUtils.getHotspotLLimitedFlameGraphHref(collapsedStackFile, title, 10), "Hotspot flame graph - depth = 10")),
                                                 List.of(of(LinkUtils.getHotspotLLimitedFlameGraphHref(collapsedStackFile, title, 20), "Hotspot flame graph - depth = 20")),

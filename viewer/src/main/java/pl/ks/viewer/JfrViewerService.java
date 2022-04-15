@@ -8,8 +8,10 @@ import pl.ks.collapsed.CollapsedStackWriter;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParser;
 import pl.ks.jfr.parser.StartEndDate;
+import pl.ks.jfr.parser.filter.EcidFilter;
 import pl.ks.jfr.parser.filter.PreStackFilter;
 import pl.ks.jfr.parser.filter.StartEndDateFilter;
+import pl.ks.jfr.parser.filter.StartEndTimestampFilter;
 import pl.ks.jfr.parser.filter.ThreadNameFilter;
 import pl.ks.viewer.io.TempFileUtils;
 
@@ -81,6 +83,14 @@ class JfrViewerService {
             );
         }
 
+        if (config.isEcidFilterOn()) {
+            filters.add(
+                    EcidFilter.builder()
+                            .ecid(config.getEcidFilter())
+                            .build()
+            );
+        }
+
         if (config.isEndDurationOn()) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat());
             Date parsedDate = simpleDateFormat.parse(config.getEndDate());
@@ -115,6 +125,14 @@ class JfrViewerService {
                     StartEndDateFilter.builder()
                             .startDate(startEndDate.getStartDate())
                             .endDate(startEndDate.getStartDate().plus(config.getWdDuration(), ChronoUnit.SECONDS))
+                            .build()
+            );
+        } else if (config.isStartEndTimestampOn()) {
+            log.info("Start/end timestamp, start: {}, end: {}", config.getStartTs(), config.getEndTs());
+            filters.add(
+                    StartEndTimestampFilter.builder()
+                            .startTs(config.getStartTs())
+                            .endTs(config.getEndTs())
                             .build()
             );
         }

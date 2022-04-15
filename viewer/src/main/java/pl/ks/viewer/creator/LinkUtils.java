@@ -15,10 +15,11 @@
  */
 package pl.ks.viewer.creator;
 
+import lombok.experimental.UtilityClass;
+
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import lombok.experimental.UtilityClass;
 
 @UtilityClass
 class LinkUtils {
@@ -26,8 +27,8 @@ class LinkUtils {
         return "/flame-graph?collapsed=" + collapsed + "&title=" + URLEncoder.encode(title, Charset.defaultCharset());
     }
 
-    String getNoThreadFlameGraphHref(String collapsed, String title) {
-        return "/flame-graph-no-thread?collapsed=" + collapsed + "&title=" + URLEncoder.encode(title, Charset.defaultCharset());
+    String getSkippedFlameGraphHref(String collapsed, String title, int skipped) {
+        return "/flame-graph-no-thread?skipped=" + skipped + "&collapsed=" + collapsed + "&title=" + URLEncoder.encode(title, Charset.defaultCharset());
     }
 
     String getHotspotFlameGraphHref(String collapsed, String title) {
