@@ -1,13 +1,8 @@
 package pl.ks.jfr.parser.filter;
 
-import org.openjdk.jmc.common.IMCThread;
 import org.openjdk.jmc.common.item.IItem;
-import org.openjdk.jmc.common.item.IMemberAccessor;
-import org.openjdk.jmc.common.unit.IQuantity;
+import pl.ks.jfr.parser.JfrAccessors;
 
 public interface PreStackFilter {
-    boolean shouldInclude(IMemberAccessor<IQuantity, IItem> startTimeAccessor,
-                          IMemberAccessor<IMCThread, IItem> threadAccessor,
-                          IMemberAccessor<String, IItem> ecidAccessor,
-                          IItem event);
+    boolean shouldInclude(JfrAccessors accessors, IItem event);
 }

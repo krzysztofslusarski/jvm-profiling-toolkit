@@ -15,6 +15,10 @@
  */
 package pl.ks.viewer;
 
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -24,12 +28,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.viewer.io.TempFileUtils;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -48,10 +46,7 @@ class JfrViewerController {
         List<String> savedCopies = new ArrayList<>(files.length);
         for (MultipartFile file : files) {
             String originalFilename = file.getOriginalFilename();
-            boolean isGZip = originalFilename != null && originalFilename.endsWith(".gz");
-            String fileName = originalFilename + "jfr-" + UUID.randomUUID().toString() + ".jfr" +
-                    (isGZip ? ".gz" : "");
-            String filePath = TempFileUtils.TEMP_DIR + fileName;
+            String filePath = TempFileUtils.TEMP_DIR + originalFilename;
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);
         }
