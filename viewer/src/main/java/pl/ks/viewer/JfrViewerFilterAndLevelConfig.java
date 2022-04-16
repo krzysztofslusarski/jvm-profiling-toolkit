@@ -1,11 +1,13 @@
 package pl.ks.viewer;
 
+import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 @Value
 @Builder
-public class JfrViewerFilterConfig {
+public class JfrViewerFilterAndLevelConfig {
     boolean threadFilterOn;
     String threadFilter;
     boolean endDurationOn;
@@ -23,4 +25,5 @@ public class JfrViewerFilterConfig {
     boolean startEndTimestampOn;
     long startTs;
     long endTs;
+    Set<AdditionalLevel> additionalLevels;
 }

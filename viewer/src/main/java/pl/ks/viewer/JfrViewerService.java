@@ -1,20 +1,5 @@
 package pl.ks.viewer;
 
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import pl.ks.collapsed.CollapsedStack;
-import pl.ks.collapsed.CollapsedStackWriter;
-import pl.ks.jfr.parser.JfrParsedFile;
-import pl.ks.jfr.parser.JfrParser;
-import pl.ks.jfr.parser.StartEndDate;
-import pl.ks.jfr.parser.filter.EcidFilter;
-import pl.ks.jfr.parser.filter.PreStackFilter;
-import pl.ks.jfr.parser.filter.StartEndDateFilter;
-import pl.ks.jfr.parser.filter.StartEndTimestampFilter;
-import pl.ks.jfr.parser.filter.ThreadNameFilter;
-import pl.ks.viewer.io.TempFileUtils;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +15,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import pl.ks.collapsed.CollapsedStack;
+import pl.ks.collapsed.CollapsedStackWriter;
+import pl.ks.jfr.parser.JfrParsedFile;
+import pl.ks.jfr.parser.JfrParser;
+import pl.ks.jfr.parser.StartEndDate;
+import pl.ks.jfr.parser.tuning.EcidFilter;
+import pl.ks.jfr.parser.tuning.PreStackFilter;
+import pl.ks.jfr.parser.tuning.StartEndDateFilter;
+import pl.ks.jfr.parser.tuning.StartEndTimestampFilter;
+import pl.ks.jfr.parser.tuning.ThreadNameFilter;
+import pl.ks.viewer.io.TempFileUtils;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -38,12 +37,12 @@ class JfrViewerService {
 
     private final JfrParser jfrParser;
 
-    JfrViewerResult convertToCollapsed(List<String> files, JfrViewerFilterConfig config) throws IOException {
+    JfrViewerResult convertToCollapsed(List<String> files, JfrViewerFilterAndLevelConfig config) throws IOException {
         List<Path> paths = files.stream()
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths));
+        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths), config.getAdditionalLevels());
         Map<JfrParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();
         boolean ignoreWall = parsedFile.getCpu().hasSameSizes(parsedFile.getWall());
 
@@ -72,7 +71,7 @@ class JfrViewerService {
     }
 
     @SneakyThrows
-    private List<PreStackFilter> createFilters(JfrViewerFilterConfig config, List<Path> paths) {
+    private List<PreStackFilter> createFilters(JfrViewerFilterAndLevelConfig config, List<Path> paths) {
         List<PreStackFilter> filters = new ArrayList<>(2);
 
         if (config.isThreadFilterOn()) {

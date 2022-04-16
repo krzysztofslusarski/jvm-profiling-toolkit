@@ -17,8 +17,10 @@ package pl.ks.viewer;
 
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 import pl.ks.viewer.io.TempFileUtils;
 
 @Controller
@@ -56,9 +59,9 @@ class JfrViewerController {
         return "uploaded-jfr";
     }
 
-    private JfrViewerFilterConfig createConfig(Map<String, String> params) {
+    private JfrViewerFilterAndLevelConfig createConfig(Map<String, String> params) {
         boolean threadFilterOn = "on".equals(params.get("threadFilterOn"));
-        JfrViewerFilterConfig.JfrViewerFilterConfigBuilder builder = JfrViewerFilterConfig.builder();
+        JfrViewerFilterAndLevelConfig.JfrViewerFilterAndLevelConfigBuilder builder = JfrViewerFilterAndLevelConfig.builder();
         builder.threadFilterOn(threadFilterOn);
         if (threadFilterOn) {
             builder.threadFilter(params.get("threadFilter"));
@@ -101,6 +104,18 @@ class JfrViewerController {
             builder.startTs(Long.parseLong(params.get("startTs")));
             builder.endTs(Long.parseLong(params.get("endTs")));
         }
+
+        Set<AdditionalLevel> additionalLevels = new HashSet<>();
+        if ("on".equals(params.get("extractThreads"))) {
+            additionalLevels.add(AdditionalLevel.THREAD);
+        }
+        if ("on".equals(params.get("extractTs"))) {
+            additionalLevels.add(AdditionalLevel.TIMESTAMP);
+        }
+        if ("on".equals(params.get("extractFileName"))) {
+            additionalLevels.add(AdditionalLevel.FILE_NAME);
+        }
+        builder.additionalLevels(additionalLevels);
 
         return builder.build();
     }

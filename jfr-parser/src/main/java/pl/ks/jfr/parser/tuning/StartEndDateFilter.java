@@ -1,4 +1,4 @@
-package pl.ks.jfr.parser.filter;
+package pl.ks.jfr.parser.tuning;
 
 import java.time.Instant;
 import lombok.Builder;

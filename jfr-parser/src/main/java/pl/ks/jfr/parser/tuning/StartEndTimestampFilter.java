@@ -1,4 +1,4 @@
-package pl.ks.jfr.parser.filter;
+package pl.ks.jfr.parser.tuning;
 
 import lombok.Builder;
 import lombok.Value;

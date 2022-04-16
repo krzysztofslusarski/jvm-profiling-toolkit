@@ -1,4 +1,4 @@
-package pl.ks.jfr.parser.filter;
+package pl.ks.jfr.parser.tuning;
 
 import org.openjdk.jmc.common.item.IItem;
 import pl.ks.jfr.parser.JfrAccessors;

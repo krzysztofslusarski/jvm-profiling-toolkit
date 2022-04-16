@@ -108,11 +108,11 @@ class JfrParserHelper {
         List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
 
         StringBuilder builder = new StringBuilder();
-        if (context.isIncludeTimeStampAndDate()) {
+        if (context.isIncludeTimestampAndDate()) {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
-            long time = startTime.longValue() / 1000000 / context.getTimeStampDivider();
+            long time = startTime.longValue() / 1000000 / context.getTimestampDivider();
             builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
-            builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * context.getTimeStampDivider()))).append("_[k];");
+            builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * context.getTimestampDivider()))).append("_[k];");
         }
 
         if (context.isIncludeFileName()) {

@@ -40,6 +40,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -55,22 +57,25 @@ import org.openjdk.jmc.flightrecorder.internal.EventArray;
 import org.openjdk.jmc.flightrecorder.internal.EventArrays;
 import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
 import org.springframework.util.StopWatch;
-import pl.ks.jfr.parser.filter.PreStackFilter;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
+import pl.ks.jfr.parser.tuning.PreStackFilter;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
     public static final ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US));
     public static final ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("000000000000"));
     private static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal(100);
+    private static final int UUID_LENGTH = UUID.randomUUID().toString().length();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters) {
+    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters, Set<AdditionalLevel> additionalLevels) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         JfrParsedFile jfrParsedFile = new JfrParsedFile();
         jfrFiles.forEach(path -> parseFile(
                 JfrParserContext.builder()
                         .preStackFilters(filters)
+                        .additionalLevels(additionalLevels)
                         .file(path)
                         .jfrParsedFile(jfrParsedFile)
                         .build()
@@ -310,7 +315,7 @@ class JfrParserImpl implements JfrParser {
 
             if (accessors.getEcidAccessor() != null) {
                 String ecid = accessors.getEcidAccessor().getMember(event);
-                if (ecid != null && ecid.trim().length() > 0) {
+                if (validEcid(ecid)) {
                     ecid = ecid.toLowerCase();
                     long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
                     Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
@@ -324,6 +329,34 @@ class JfrParserImpl implements JfrParser {
                 jfrParsedFile.getCpu().addSingleStack(stacktrace);
             }
         });
+    }
+
+    private static boolean validEcid(String ecid) {
+        return ecid != null && ecid.trim().length() > 0 && isUuid(ecid.trim());
+    }
+
+    public static boolean isUuid(String s)  {
+        if (s.length() != UUID_LENGTH) {
+            return false;
+        }
+
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                if (c != '-') {
+                    return false;
+                }
+                continue;
+            }
+
+            if (!(c >= 'A' && c <= 'F') && !(c >= 'a' && c <= 'f') && !(c >= '0' && c <= '9')) {
+                return false;
+            }
+        }
+
+
+        return true;
     }
 
     private static boolean shouldSkipByFilter(List<PreStackFilter> preStackFilters, JfrAccessors accessors, IItem event) {
