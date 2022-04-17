@@ -1,7 +1,8 @@
 package pl.ks.jfr.parser;
 
-import java.time.Instant;
 import lombok.Getter;
+
+import java.time.Instant;
 
 @Getter
 public class JfrEcidInfo {
@@ -15,7 +16,7 @@ public class JfrEcidInfo {
         this.ecid = ecid;
     }
 
-    public long timeDiff() {
+    public synchronized long timeDiff() {
         return maxDate.toEpochMilli() - minDate.toEpochMilli();
     }
 
