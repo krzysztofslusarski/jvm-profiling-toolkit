@@ -6,7 +6,7 @@ import java.time.Instant;
 
 @Getter
 public class JfrEcidInfo {
-    private String ecid;
+    private final String ecid;
     private Instant minDate = Instant.MAX;
     private Instant maxDate = Instant.MIN;
     private long wallSamples;
