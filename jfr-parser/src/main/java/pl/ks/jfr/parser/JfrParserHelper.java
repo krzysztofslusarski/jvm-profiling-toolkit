@@ -108,19 +108,32 @@ class JfrParserHelper {
         List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
 
         StringBuilder builder = new StringBuilder();
-        if (context.isIncludeTimestampAndDate()) {
+
+        if (context.includeAnyTimestampAndDate()) {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
-            long time = startTime.longValue() / 1000000 / context.getTimestampDivider();
-            builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
-            builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * context.getTimestampDivider()))).append("_[k];");
+            if (context.includeTimestamp100MSAndDate()) {
+                long time = startTime.longValue() / 1000000 / 100;
+                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 100))).append("_[k];");
+            }
+            if (context.includeTimestamp1SAndDate()) {
+                long time = startTime.longValue() / 1000000 / 1000;
+                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 1000))).append("_[k];");
+            }
+            if (context.includeTimestamp10SAndDate()) {
+                long time = startTime.longValue() / 1000000 / 10000;
+                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 10000))).append("_[k];");
+            }
         }
 
-        if (context.isIncludeFileName()) {
+        if (context.includeFileName()) {
             String filename = context.getFile().getFileName().toString();
             builder.append(filename).append("_[i];");
         }
 
-        if (context.isIncludeThreadName()) {
+        if (context.includeThreadName()) {
             builder.append(threadName).append(";");
         }
 

@@ -62,8 +62,8 @@ import pl.ks.jfr.parser.tuning.PreStackFilter;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
-    public static final ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US));
-    public static final ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("000000000000"));
+    public static final ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
+    public static final ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
     private static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal(100);
     private static final int UUID_LENGTH = UUID.randomUUID().toString().length();
 

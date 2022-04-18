@@ -133,7 +133,7 @@
                             <div class="input-field col s12">
                                 <label>
                                     <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
-                                    <span>Start/end timestamp filter enabled</span>
+                                    <span>Start/end timestamp (in seconds) filter enabled</span>
                                 </label>
                             </div>
                         </div>
@@ -210,8 +210,20 @@
                                 </div>
                                 <div class="input-field col s12">
                                     <label>
-                                        <input id="extractTs" name="extractTs" type="checkbox"/>
-                                        <span>Add timestamp level</span>
+                                        <input id="extractTs10S" name="extractTs10S" type="checkbox"/>
+                                        <span>Add timestamp level (10 second window)</span>
+                                    </label>
+                                </div>
+                                <div class="input-field col s12">
+                                    <label>
+                                        <input id="extractTs1S" name="extractTs1S" type="checkbox"/>
+                                        <span>Add timestamp level (1 second window)</span>
+                                    </label>
+                                </div>
+                                <div class="input-field col s12">
+                                    <label>
+                                        <input id="extractTs100Ms" name="extractTs100Ms" type="checkbox"/>
+                                        <span>Add timestamp level (100 ms window)</span>
                                     </label>
                                 </div>
                                 <div class="input-field col s12">

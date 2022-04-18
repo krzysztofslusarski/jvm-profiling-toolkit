@@ -110,8 +110,14 @@ class JfrViewerController {
         if (ON.equals(params.get("extractThreads"))) {
             additionalLevels.add(AdditionalLevel.THREAD);
         }
-        if (ON.equals(params.get("extractTs"))) {
-            additionalLevels.add(AdditionalLevel.TIMESTAMP);
+        if (ON.equals(params.get("extractTs10S"))) {
+            additionalLevels.add(AdditionalLevel.TIMESTAMP_10_S);
+        }
+        if (ON.equals(params.get("extractTs1S"))) {
+            additionalLevels.add(AdditionalLevel.TIMESTAMP_1_S);
+        }
+        if (ON.equals(params.get("extractTs100Ms"))) {
+            additionalLevels.add(AdditionalLevel.TIMESTAMP_100_MS);
         }
         if (ON.equals(params.get("extractFilename"))) {
             additionalLevels.add(AdditionalLevel.FILENAME);

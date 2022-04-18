@@ -17,6 +17,8 @@ package pl.ks.jfr.parser.tuning;
 
 public enum AdditionalLevel {
     THREAD,
-    TIMESTAMP,
+    TIMESTAMP_10_S,
+    TIMESTAMP_1_S,
+    TIMESTAMP_100_MS,
     FILENAME
 }

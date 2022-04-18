@@ -32,17 +32,27 @@ class JfrParserContext {
     JfrParsedFile jfrParsedFile;
     Set<AdditionalLevel> additionalLevels;
 
-    public boolean isIncludeThreadName() {
+    public boolean includeThreadName() {
         return additionalLevels.contains(AdditionalLevel.THREAD);
     }
 
-    public boolean isIncludeFileName() {
+    public boolean includeFileName() {
         return additionalLevels.contains(AdditionalLevel.FILENAME);
     }
 
-    public boolean isIncludeTimestampAndDate() {
-        return additionalLevels.contains(AdditionalLevel.TIMESTAMP);
+    public boolean includeTimestamp10SAndDate() {
+        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_10_S);
     }
 
-    long timestampDivider = 1000;
+    public boolean includeTimestamp1SAndDate() {
+        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_1_S);
+    }
+
+    public boolean includeTimestamp100MSAndDate() {
+        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_100_MS);
+    }
+
+    public boolean includeAnyTimestampAndDate() {
+        return includeTimestamp10SAndDate() || includeTimestamp1SAndDate() || includeTimestamp100MSAndDate();
+    }
 }
