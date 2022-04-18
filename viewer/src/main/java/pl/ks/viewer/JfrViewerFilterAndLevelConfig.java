@@ -26,4 +26,5 @@ public class JfrViewerFilterAndLevelConfig {
     long startTs;
     long endTs;
     Set<AdditionalLevel> additionalLevels;
+    boolean ecidIsUuid;
 }

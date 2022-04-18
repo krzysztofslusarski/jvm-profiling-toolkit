@@ -35,6 +35,7 @@ import pl.ks.viewer.io.TempFileUtils;
 @Controller
 @RequiredArgsConstructor
 class JfrViewerController {
+    public static final String ON = "on";
     private final JfrViewerService jfrViewerService;
 
     @GetMapping("/upload-jfr")
@@ -60,14 +61,14 @@ class JfrViewerController {
     }
 
     private JfrViewerFilterAndLevelConfig createConfig(Map<String, String> params) {
-        boolean threadFilterOn = "on".equals(params.get("threadFilterOn"));
+        boolean threadFilterOn = ON.equals(params.get("threadFilterOn"));
         JfrViewerFilterAndLevelConfig.JfrViewerFilterAndLevelConfigBuilder builder = JfrViewerFilterAndLevelConfig.builder();
         builder.threadFilterOn(threadFilterOn);
         if (threadFilterOn) {
             builder.threadFilter(params.get("threadFilter"));
         }
 
-        boolean endDurationOn = "on".equals(params.get("endDurationOn"));
+        boolean endDurationOn = ON.equals(params.get("endDurationOn"));
         builder.endDurationOn(endDurationOn);
         if (endDurationOn) {
             builder
@@ -76,7 +77,7 @@ class JfrViewerController {
                     .endDateDateTimeFormat(params.get("endDateDateTimeFormat"));
         }
 
-        boolean warmupCooldownOn = "on".equals(params.get("warmupCooldownOn"));
+        boolean warmupCooldownOn = ON.equals(params.get("warmupCooldownOn"));
         builder.warmupCooldownOn(warmupCooldownOn);
         if (warmupCooldownOn) {
             builder
@@ -84,7 +85,7 @@ class JfrViewerController {
                     .warmup(Integer.parseInt(params.get("warmup")));
         }
 
-        boolean warmupDurationOn = "on".equals(params.get("warmupDurationOn"));
+        boolean warmupDurationOn = ON.equals(params.get("warmupDurationOn"));
         builder.warmupDurationOn(warmupDurationOn);
         if (warmupDurationOn) {
             builder
@@ -92,13 +93,13 @@ class JfrViewerController {
                     .wdWarmup(Integer.parseInt(params.get("wdWarmup")));
         }
 
-        boolean ecidFilterOn = "on".equals(params.get("ecidFilterOn"));
+        boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
         builder.ecidFilterOn(ecidFilterOn);
         if (ecidFilterOn) {
             builder.ecidFilter(params.get("ecidFilter"));
         }
 
-        boolean startEndTimestampOn = "on".equals(params.get("startEndTimestampOn"));
+        boolean startEndTimestampOn = ON.equals(params.get("startEndTimestampOn"));
         builder.startEndTimestampOn(startEndTimestampOn);
         if (startEndTimestampOn) {
             builder.startTs(Long.parseLong(params.get("startTs")));
@@ -106,16 +107,18 @@ class JfrViewerController {
         }
 
         Set<AdditionalLevel> additionalLevels = new HashSet<>();
-        if ("on".equals(params.get("extractThreads"))) {
+        if (ON.equals(params.get("extractThreads"))) {
             additionalLevels.add(AdditionalLevel.THREAD);
         }
-        if ("on".equals(params.get("extractTs"))) {
+        if (ON.equals(params.get("extractTs"))) {
             additionalLevels.add(AdditionalLevel.TIMESTAMP);
         }
-        if ("on".equals(params.get("extractFilename"))) {
+        if (ON.equals(params.get("extractFilename"))) {
             additionalLevels.add(AdditionalLevel.FILENAME);
         }
         builder.additionalLevels(additionalLevels);
+
+        builder.ecidIsUuid(ON.equals(params.get("ecidIsUuid")));
 
         return builder.build();
     }

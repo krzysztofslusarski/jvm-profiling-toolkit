@@ -68,7 +68,7 @@ class JfrParserImpl implements JfrParser {
     private static final int UUID_LENGTH = UUID.randomUUID().toString().length();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters, Set<AdditionalLevel> additionalLevels) {
+    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters, Set<AdditionalLevel> additionalLevels, boolean ecidIsUuid) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         JfrParsedFile jfrParsedFile = new JfrParsedFile();
@@ -76,6 +76,7 @@ class JfrParserImpl implements JfrParser {
                 JfrParserContext.builder()
                         .preStackFilters(filters)
                         .additionalLevels(additionalLevels)
+                        .ecidIsUuid(ecidIsUuid)
                         .file(path)
                         .jfrParsedFile(jfrParsedFile)
                         .build()
@@ -315,7 +316,7 @@ class JfrParserImpl implements JfrParser {
 
             if (accessors.getEcidAccessor() != null) {
                 String ecid = accessors.getEcidAccessor().getMember(event);
-                if (validEcid(ecid)) {
+                if (validEcid(ecid, context)) {
                     ecid = ecid.toLowerCase();
                     long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
                     Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
@@ -331,8 +332,8 @@ class JfrParserImpl implements JfrParser {
         });
     }
 
-    private static boolean validEcid(String ecid) {
-        return ecid != null && ecid.trim().length() > 0 && isUuid(ecid.trim());
+    private static boolean validEcid(String ecid, JfrParserContext context) {
+        return ecid != null && ecid.trim().length() > 0 && (!context.isEcidIsUuid() || isUuid(ecid.trim()));
     }
 
     public static boolean isUuid(String s)  {

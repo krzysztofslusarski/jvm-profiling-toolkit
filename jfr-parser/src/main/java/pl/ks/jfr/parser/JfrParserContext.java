@@ -11,10 +11,10 @@ import pl.ks.jfr.parser.tuning.PreStackFilter;
 @Value
 @Builder
 class JfrParserContext {
+    boolean ecidIsUuid;
+    Path file;
     List<PreStackFilter> preStackFilters;
     JfrParsedFile jfrParsedFile;
-    Path file;
-
     Set<AdditionalLevel> additionalLevels;
 
     public boolean isIncludeThreadName() {

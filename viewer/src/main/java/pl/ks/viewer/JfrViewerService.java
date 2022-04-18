@@ -42,7 +42,7 @@ class JfrViewerService {
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths), config.getAdditionalLevels());
+        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths), config.getAdditionalLevels(), config.isEcidIsUuid());
         Map<JfrParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();
         boolean ignoreWall = parsedFile.getCpu().hasSameSizes(parsedFile.getWall());
 
