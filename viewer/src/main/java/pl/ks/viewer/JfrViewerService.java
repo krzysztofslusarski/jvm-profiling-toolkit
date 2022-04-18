@@ -52,9 +52,9 @@ class JfrViewerService {
                 if (ignoreWall && type == JfrParsedFile.Type.WALL) {
                     continue;
                 }
-                String fileName = "collapsed-" + UUID.randomUUID() + ".log";
-                CollapsedStackWriter.saveFile(TempFileUtils.TEMP_DIR, fileName, collapsedStack);
-                collapsedFiles.put(type, fileName);
+                String filename = "collapsed-" + UUID.randomUUID() + ".log";
+                CollapsedStackWriter.saveFile(TempFileUtils.TEMP_DIR, filename, collapsedStack);
+                collapsedFiles.put(type, filename);
             }
         }
         paths.forEach(path -> {

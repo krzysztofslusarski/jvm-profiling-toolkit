@@ -116,8 +116,8 @@ class JfrParserHelper {
         }
 
         if (context.isIncludeFileName()) {
-            String fileName = context.getFile().getFileName().toString();
-            builder.append(fileName).append("_[i];");
+            String filename = context.getFile().getFileName().toString();
+            builder.append(filename).append("_[i];");
         }
 
         if (context.isIncludeThreadName()) {

@@ -22,7 +22,7 @@ class JfrParserContext {
     }
 
     public boolean isIncludeFileName() {
-        return additionalLevels.contains(AdditionalLevel.FILE_NAME);
+        return additionalLevels.contains(AdditionalLevel.FILENAME);
     }
 
     public boolean isIncludeTimestampAndDate() {

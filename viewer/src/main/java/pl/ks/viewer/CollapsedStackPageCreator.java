@@ -32,9 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 import pl.ks.viewer.creator.FlameGraphsCreator;
 import pl.ks.viewer.creator.SelfTimeCreator;
 import pl.ks.viewer.creator.TotalTimeCreator;
+import pl.ks.viewer.io.TempFileUtils;
 import pl.ks.viewer.pages.Page;
 import pl.ks.viewer.pages.PageCreator;
-import pl.ks.viewer.io.TempFileUtils;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -57,11 +57,11 @@ class CollapsedStackPageCreator {
                 .collect(Collectors.toList());
     }
 
-    private CollapsedStackInfo parse(String fileName) {
+    private CollapsedStackInfo parse(String filename) {
         Map<String, MethodInfo> methodInfos = new HashMap<>();
         long totalCount = 0;
 
-        try (InputStream inputStream = new FileInputStream(TempFileUtils.getFilePath(fileName));
+        try (InputStream inputStream = new FileInputStream(TempFileUtils.getFilePath(filename));
              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
              ) {
             while (reader.ready()) {

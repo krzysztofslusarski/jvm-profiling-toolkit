@@ -33,15 +33,15 @@ import org.tukaani.xz.XZInputStream;
 
 @UtilityClass
 public class InputUtils {
-    public static InputStream getInputStream(String fileName, String filePath) throws IOException {
+    public static InputStream getInputStream(String filename, String filePath) throws IOException {
         InputStream inputStream = null;
-        if (fileName.endsWith(".7z")) {
+        if (filename.endsWith(".7z")) {
             inputStream = get7ZipInputStream(filePath);
-        } else if (fileName.endsWith(".zip")) {
+        } else if (filename.endsWith(".zip")) {
             inputStream = getZipInputStream(filePath);
-        } else if (fileName.endsWith(".xz")) {
+        } else if (filename.endsWith(".xz")) {
             inputStream = getXZInputStream(filePath);
-        } else if (fileName.endsWith(".gz") || fileName.endsWith(".gzip")) {
+        } else if (filename.endsWith(".gz") || filename.endsWith(".gzip")) {
             inputStream = getGZipInputStream(filePath);
         } else {
             inputStream = new FileInputStream(filePath);

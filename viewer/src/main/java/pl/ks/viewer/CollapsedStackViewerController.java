@@ -15,6 +15,19 @@
  */
 package pl.ks.viewer;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.commons.compress.utils.IOUtils;
@@ -31,20 +44,6 @@ import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 import pl.ks.viewer.io.StorageUtils;
 import pl.ks.viewer.io.TempFileUtils;
 import pl.ks.viewer.pages.WelcomePage;
-
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -262,8 +261,8 @@ class CollapsedStackViewerController {
                           @RequestParam("totalTimeThreshold") BigDecimal totalTimeThreshold,
                           @RequestParam("selfTimeThreshold") BigDecimal selfTimeThreshold) throws Exception {
         UUID newUuid = UUID.randomUUID();
-        String fileName = newUuid + "from--method-root.txt";
-        String outputCollapsedFilePath = TempFileUtils.getFilePath(fileName);
+        String filename = newUuid + "from--method-root.txt";
+        String outputCollapsedFilePath = TempFileUtils.getFilePath(filename);
         try (InputStream inputStream = new FileInputStream(TempFileUtils.getFilePath(collapsed));
              OutputStream fromOutStream = new FileOutputStream(outputCollapsedFilePath);
              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
@@ -286,7 +285,7 @@ class CollapsedStackViewerController {
             }
         }
         model.addAttribute("welcomePage", WelcomePage.builder()
-                .pages(collapsedStackPageCreator.generatePages(fileName, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
+                .pages(collapsedStackPageCreator.generatePages(filename, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
                 .title(title + " " + method)
                 .build());
         return "collapsed";
@@ -341,8 +340,8 @@ class CollapsedStackViewerController {
                         @RequestParam("totalTimeThreshold") BigDecimal totalTimeThreshold,
                         @RequestParam("selfTimeThreshold") BigDecimal selfTimeThreshold) throws Exception {
         UUID newUuid = UUID.randomUUID();
-        String fileName = newUuid + "-to-method-root.txt";
-        String outputCollapsedFilePath = TempFileUtils.getFilePath(fileName);
+        String filename = newUuid + "-to-method-root.txt";
+        String outputCollapsedFilePath = TempFileUtils.getFilePath(filename);
         try (InputStream inputStream = new FileInputStream(TempFileUtils.getFilePath(collapsed));
              OutputStream fromOutStream = new FileOutputStream(outputCollapsedFilePath);
              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
@@ -366,7 +365,7 @@ class CollapsedStackViewerController {
             }
         }
         model.addAttribute("welcomePage", WelcomePage.builder()
-                .pages(collapsedStackPageCreator.generatePages(fileName, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
+                .pages(collapsedStackPageCreator.generatePages(filename, title + " - " + method, totalTimeThreshold, selfTimeThreshold))
                 .title(title + " " + method)
                 .build());
         return "collapsed";

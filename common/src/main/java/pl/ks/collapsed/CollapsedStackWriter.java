@@ -26,18 +26,18 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class CollapsedStackWriter {
-    public static void saveFile(String dir, String fileName, CollapsedStack collapsedStack) throws IOException {
-        log.info("Writing to dir: {} with file name: {}", dir, fileName);
-        try (Writer output = new OutputStreamWriter(new FileOutputStream(dir + "/" + fileName ))) {
+    public static void saveFile(String dir, String filename, CollapsedStack collapsedStack) throws IOException {
+        log.info("Writing to dir: {} with file name: {}", dir, filename);
+        try (Writer output = new OutputStreamWriter(new FileOutputStream(dir + "/" + filename ))) {
             for (Map.Entry<String, AtomicLong> holderEntry : collapsedStack.stacks().entrySet()) {
                 write(output, holderEntry);
             }
         }
     }
 
-    public static void saveGZipFile(String dir, String fileName, CollapsedStack collapsedStack) throws IOException {
-        log.info("Writing to dir: {} with file name: {}.gz", dir, fileName);
-        try (Writer output = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(dir + "/" + fileName + ".gz")))) {
+    public static void saveGZipFile(String dir, String filename, CollapsedStack collapsedStack) throws IOException {
+        log.info("Writing to dir: {} with file name: {}.gz", dir, filename);
+        try (Writer output = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(dir + "/" + filename + ".gz")))) {
             for (Map.Entry<String, AtomicLong> holderEntry : collapsedStack.stacks().entrySet()) {
                 write(output, holderEntry);
             }

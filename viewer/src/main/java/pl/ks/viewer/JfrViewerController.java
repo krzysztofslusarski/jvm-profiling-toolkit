@@ -112,8 +112,8 @@ class JfrViewerController {
         if ("on".equals(params.get("extractTs"))) {
             additionalLevels.add(AdditionalLevel.TIMESTAMP);
         }
-        if ("on".equals(params.get("extractFileName"))) {
-            additionalLevels.add(AdditionalLevel.FILE_NAME);
+        if ("on".equals(params.get("extractFilename"))) {
+            additionalLevels.add(AdditionalLevel.FILENAME);
         }
         builder.additionalLevels(additionalLevels);
 
