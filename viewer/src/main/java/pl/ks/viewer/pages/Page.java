@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Krzysztof Slusarski
+ * Copyright 2022 Krzysztof Slusarski
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
  */
 package pl.ks.viewer.pages;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Value;
-
-import java.util.List;
 
 @Getter
 @Value

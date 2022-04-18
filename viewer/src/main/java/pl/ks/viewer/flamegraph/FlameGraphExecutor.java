@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Krzysztof Slusarski
+ * Copyright 2022 Krzysztof Slusarski
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package pl.ks.viewer.flamegraph;
 
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

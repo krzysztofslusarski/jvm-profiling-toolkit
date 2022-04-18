@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Krzysztof Slusarski
+ * Copyright 2022 Krzysztof Slusarski
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
  */
 package pl.ks.viewer.creator;
 
+import static pl.ks.viewer.pages.TableWithLinks.Link.of;
+
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import pl.ks.viewer.pages.Page;
 import pl.ks.viewer.pages.PageCreator;
 import pl.ks.viewer.pages.TableWithLinks;
-
-import java.util.List;
-
-import static pl.ks.viewer.pages.TableWithLinks.Link.of;
 
 @RequiredArgsConstructor
 public class FlameGraphsCreator implements PageCreator {
