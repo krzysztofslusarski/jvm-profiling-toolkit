@@ -19,24 +19,25 @@ import lombok.Builder;
 import lombok.Value;
 import org.openjdk.jmc.common.item.IItem;
 import org.openjdk.jmc.common.item.IMemberAccessor;
+import org.openjdk.jmc.common.unit.IQuantity;
 import pl.ks.jfr.parser.JfrAccessors;
 
 @Value
 @Builder
 public class EcidFilter implements PreStackFilter {
-    String ecid;
+    long ecid;
 
     @Override
     public boolean shouldInclude(JfrAccessors accessors, IItem event) {
         return shouldInclude(accessors.getEcidAccessor(), event);
     }
 
-    private boolean shouldInclude(IMemberAccessor<String, IItem> ecidAccessor, IItem event) {
+    private boolean shouldInclude(IMemberAccessor<IQuantity, IItem> ecidAccessor, IItem event) {
         if (ecidAccessor == null) {
             return false;
         }
 
-        String ecid = ecidAccessor.getMember(event);
-        return this.ecid.equalsIgnoreCase(ecid);
+        long ecid = ecidAccessor.getMember(event).longValue();
+        return ecid == this.ecid;
     }
 }

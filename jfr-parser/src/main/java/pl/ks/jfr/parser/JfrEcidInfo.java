@@ -20,13 +20,13 @@ import lombok.Getter;
 
 @Getter
 public class JfrEcidInfo {
-    private final String ecid;
+    private final long ecid;
     private Instant minDate = Instant.MAX;
     private Instant maxDate = Instant.MIN;
     private long wallSamples;
     private long cpuSamples;
 
-    public JfrEcidInfo(String ecid) {
+    public JfrEcidInfo(long ecid) {
         this.ecid = ecid;
     }
 
@@ -46,6 +46,4 @@ public class JfrEcidInfo {
             cpuSamples++;
         }
     }
-
-
 }

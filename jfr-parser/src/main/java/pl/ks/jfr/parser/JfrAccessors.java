@@ -35,7 +35,7 @@ public class JfrAccessors {
     IMemberAccessor<IMCType, IItem> objectClassAccessor;
     IMemberAccessor<IMCType, IItem> monitorClassAccessor;
     IMemberAccessor<String, IItem> stateAccessor;
-    IMemberAccessor<String, IItem> ecidAccessor;
+    IMemberAccessor<IQuantity, IItem> ecidAccessor;
     IMemberAccessor<ITypedQuantity, IItem> jvmUserAccessor;
     IMemberAccessor<ITypedQuantity, IItem> jvmSystemAccessor;
     IMemberAccessor<ITypedQuantity, IItem> machineTotalAccessor;

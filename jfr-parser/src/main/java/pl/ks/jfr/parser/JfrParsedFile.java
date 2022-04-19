@@ -37,7 +37,7 @@ public class JfrParsedFile {
     CollapsedStack cpuLoadMachineTotal = new CollapsedStack();
     CollapsedStack cpuLoadMachineTotalMinusJvmTotal = new CollapsedStack();
 
-    Map<String, JfrEcidInfo> ecidInfo = new ConcurrentHashMap<>();
+    Map<Long, JfrEcidInfo> ecidInfo = new ConcurrentHashMap<>();
 
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();

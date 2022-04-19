@@ -315,9 +315,9 @@ class JfrParserImpl implements JfrParser {
                     JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event));
 
             if (accessors.getEcidAccessor() != null) {
-                String ecid = accessors.getEcidAccessor().getMember(event);
-                if (validEcid(ecid, context)) {
-                    ecid = ecid.toLowerCase();
+                long ecid = accessors.getEcidAccessor().getMember(event).longValue();
+                System.out.println(ecid);
+                if (ecid != 0) {
                     long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
                     Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
                     jfrParsedFile.getEcidInfo().computeIfAbsent(ecid, JfrEcidInfo::new).newWallSample(eventDate, consumesCpu);
@@ -330,34 +330,6 @@ class JfrParserImpl implements JfrParser {
                 jfrParsedFile.getCpu().addSingleStack(stacktrace);
             }
         });
-    }
-
-    private static boolean validEcid(String ecid, JfrParserContext context) {
-        return ecid != null && ecid.trim().length() > 0 && (!context.isEcidIsUuid() || isUuid(ecid.trim()));
-    }
-
-    public static boolean isUuid(String s)  {
-        if (s.length() != UUID_LENGTH) {
-            return false;
-        }
-
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-
-            if (i == 8 || i == 13 || i == 18 || i == 23) {
-                if (c != '-') {
-                    return false;
-                }
-                continue;
-            }
-
-            if (!(c >= 'A' && c <= 'F') && !(c >= 'a' && c <= 'f') && !(c >= '0' && c <= '9')) {
-                return false;
-            }
-        }
-
-
-        return true;
     }
 
     private static boolean shouldSkipByFilter(List<PreStackFilter> preStackFilters, JfrAccessors accessors, IItem event) {
