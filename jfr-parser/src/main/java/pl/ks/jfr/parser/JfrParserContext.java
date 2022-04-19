@@ -15,16 +15,16 @@
  */
 package pl.ks.jfr.parser;
 
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 import pl.ks.jfr.parser.tuning.PreStackFilter;
 
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
+
 @Value
-@Builder
 class JfrParserContext {
     boolean ecidIsUuid;
     Path file;
@@ -32,27 +32,26 @@ class JfrParserContext {
     JfrParsedFile jfrParsedFile;
     Set<AdditionalLevel> additionalLevels;
 
-    public boolean includeThreadName() {
-        return additionalLevels.contains(AdditionalLevel.THREAD);
-    }
+    boolean includeThreadName;
+    boolean includeFileName;
+    boolean includeTimestamp10SAndDate;
+    boolean includeTimestamp1SAndDate;
+    boolean includeTimestamp100MSAndDate;
+    boolean includeAnyTimestampAndDate;
 
-    public boolean includeFileName() {
-        return additionalLevels.contains(AdditionalLevel.FILENAME);
-    }
+    @Builder
+    public JfrParserContext(boolean ecidIsUuid, Path file, List<PreStackFilter> preStackFilters, JfrParsedFile jfrParsedFile, Set<AdditionalLevel> additionalLevels) {
+        this.ecidIsUuid = ecidIsUuid;
+        this.file = file;
+        this.preStackFilters = preStackFilters;
+        this.jfrParsedFile = jfrParsedFile;
+        this.additionalLevels = additionalLevels;
 
-    public boolean includeTimestamp10SAndDate() {
-        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_10_S);
-    }
-
-    public boolean includeTimestamp1SAndDate() {
-        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_1_S);
-    }
-
-    public boolean includeTimestamp100MSAndDate() {
-        return additionalLevels.contains(AdditionalLevel.TIMESTAMP_100_MS);
-    }
-
-    public boolean includeAnyTimestampAndDate() {
-        return includeTimestamp10SAndDate() || includeTimestamp1SAndDate() || includeTimestamp100MSAndDate();
+        includeThreadName = additionalLevels.contains(AdditionalLevel.THREAD);
+        includeFileName = additionalLevels.contains(AdditionalLevel.FILENAME);
+        includeTimestamp10SAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_10_S);
+        includeTimestamp1SAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_1_S);
+        includeTimestamp100MSAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_100_MS);
+        includeAnyTimestampAndDate = includeTimestamp10SAndDate || includeTimestamp1SAndDate || includeTimestamp100MSAndDate;
     }
 }

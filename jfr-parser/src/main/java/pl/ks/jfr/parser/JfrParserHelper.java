@@ -15,9 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -29,6 +26,10 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -109,31 +110,31 @@ class JfrParserHelper {
 
         StringBuilder builder = new StringBuilder();
 
-        if (context.includeAnyTimestampAndDate()) {
+        if (context.isIncludeAnyTimestampAndDate()) {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
-            if (context.includeTimestamp100MSAndDate()) {
+            if (context.isIncludeTimestamp100MSAndDate()) {
                 long time = startTime.longValue() / 1000000 / 100;
                 builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
                 builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 100))).append("_[k];");
             }
-            if (context.includeTimestamp1SAndDate()) {
+            if (context.isIncludeTimestamp1SAndDate()) {
                 long time = startTime.longValue() / 1000000 / 1000;
                 builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
                 builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 1000))).append("_[k];");
             }
-            if (context.includeTimestamp10SAndDate()) {
+            if (context.isIncludeTimestamp10SAndDate()) {
                 long time = startTime.longValue() / 1000000 / 10000;
                 builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
                 builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 10000))).append("_[k];");
             }
         }
 
-        if (context.includeFileName()) {
+        if (context.isIncludeFileName()) {
             String filename = context.getFile().getFileName().toString();
             builder.append(filename).append("_[i];");
         }
 
-        if (context.includeThreadName()) {
+        if (context.isIncludeThreadName()) {
             builder.append(threadName).append(";");
         }
 
@@ -146,7 +147,7 @@ class JfrParserHelper {
             }
 
             try {
-                String packageName = method.getType().getPackage().getName() == null ? "" : method.getType().getPackage().getName().replace(".", "/");
+                String packageName = method.getType().getPackage().getName() == null ? "" : replaceCharacter(method.getType().getPackage().getName(), '/', '.');
                 if (packageName.length() > 0) {
                     builder.append(packageName);
                     builder.append("/");
@@ -156,7 +157,7 @@ class JfrParserHelper {
                 throw e;
             }
             if (!method.getFormalDescriptor().equals("()L;")) {
-                String className = method.getType().getTypeName().replace(".", "/");
+                String className = replaceCharacter(method.getType().getTypeName(), '/', '.');
                 if (className.length() > 0) {
                     builder.append(className);
                     builder.append(".");
@@ -262,5 +263,15 @@ class JfrParserHelper {
 
     static boolean isConsumingCpu(String state) {
         return "STATE_RUNNABLE".equals(state);
+    }
+
+    private static String replaceCharacter(String str, char toReplace, char replacedWith) {
+        char[] chars = str.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            if (chars[i] == toReplace) {
+                chars[i] = replacedWith;
+            }
+        }
+        return new String(chars);
     }
 }
