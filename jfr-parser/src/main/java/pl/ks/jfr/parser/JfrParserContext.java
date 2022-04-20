@@ -26,7 +26,6 @@ import java.util.Set;
 
 @Value
 class JfrParserContext {
-    boolean ecidIsUuid;
     Path file;
     List<PreStackFilter> preStackFilters;
     JfrParsedFile jfrParsedFile;
@@ -40,8 +39,7 @@ class JfrParserContext {
     boolean includeAnyTimestampAndDate;
 
     @Builder
-    public JfrParserContext(boolean ecidIsUuid, Path file, List<PreStackFilter> preStackFilters, JfrParsedFile jfrParsedFile, Set<AdditionalLevel> additionalLevels) {
-        this.ecidIsUuid = ecidIsUuid;
+    public JfrParserContext(Path file, List<PreStackFilter> preStackFilters, JfrParsedFile jfrParsedFile, Set<AdditionalLevel> additionalLevels) {
         this.file = file;
         this.preStackFilters = preStackFilters;
         this.jfrParsedFile = jfrParsedFile;

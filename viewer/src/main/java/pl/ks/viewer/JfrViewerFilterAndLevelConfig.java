@@ -15,10 +15,11 @@
  */
 package pl.ks.viewer;
 
-import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
+
+import java.util.Set;
 
 @Value
 @Builder
@@ -36,10 +37,9 @@ public class JfrViewerFilterAndLevelConfig {
     int wdWarmup;
     long wdDuration;
     boolean ecidFilterOn;
-    String ecidFilter;
+    long ecidFilter;
     boolean startEndTimestampOn;
     long startTs;
     long endTs;
     Set<AdditionalLevel> additionalLevels;
-    boolean ecidIsUuid;
 }

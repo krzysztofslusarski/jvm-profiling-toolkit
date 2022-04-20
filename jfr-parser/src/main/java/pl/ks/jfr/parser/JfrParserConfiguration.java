@@ -15,9 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -26,10 +23,5 @@ class JfrParserConfiguration {
     @Bean
     JfrParser jfrParser() {
         return new JfrParserImpl();
-    }
-
-    public static void main(String[] args) {
-        JfrParserImpl jfrParser = new JfrParserImpl();
-        jfrParser.parse(List.of(Path.of("/tmp/test.jfr")), Collections.emptyList(), Collections.emptySet(), false);
     }
 }

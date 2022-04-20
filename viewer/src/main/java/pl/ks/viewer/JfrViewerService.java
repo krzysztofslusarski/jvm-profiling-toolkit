@@ -15,21 +15,6 @@
  */
 package pl.ks.viewer;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +30,22 @@ import pl.ks.jfr.parser.tuning.StartEndTimestampFilter;
 import pl.ks.jfr.parser.tuning.ThreadNameFilter;
 import pl.ks.viewer.io.TempFileUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 @Slf4j
 @RequiredArgsConstructor
 class JfrViewerService {
@@ -57,7 +58,7 @@ class JfrViewerService {
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths), config.getAdditionalLevels(), config.isEcidIsUuid());
+        JfrParsedFile parsedFile = jfrParser.parse(paths, createFilters(config, paths), config.getAdditionalLevels());
         Map<JfrParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();
         boolean ignoreWall = parsedFile.getCpu().hasSameSizes(parsedFile.getWall());
 

@@ -15,12 +15,6 @@
  */
 package pl.ks.viewer;
 
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -31,6 +25,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 import pl.ks.viewer.io.TempFileUtils;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Controller
 @RequiredArgsConstructor
@@ -96,7 +97,7 @@ class JfrViewerController {
         boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
         builder.ecidFilterOn(ecidFilterOn);
         if (ecidFilterOn) {
-            builder.ecidFilter(params.get("ecidFilter"));
+            builder.ecidFilter(Long.parseLong(params.get("ecidFilter")));
         }
 
         boolean startEndTimestampOn = ON.equals(params.get("startEndTimestampOn"));
@@ -123,8 +124,6 @@ class JfrViewerController {
             additionalLevels.add(AdditionalLevel.FILENAME);
         }
         builder.additionalLevels(additionalLevels);
-
-        builder.ecidIsUuid(ON.equals(params.get("ecidIsUuid")));
 
         return builder.build();
     }

@@ -15,16 +15,20 @@
  */
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
-import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
+import lombok.extern.slf4j.Slf4j;
+import org.openjdk.jmc.common.item.IAccessorKey;
+import org.openjdk.jmc.common.item.IItem;
+import org.openjdk.jmc.common.item.IMemberAccessor;
+import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
+import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
+import org.openjdk.jmc.flightrecorder.JfrAttributes;
+import org.openjdk.jmc.flightrecorder.internal.EventArray;
+import org.openjdk.jmc.flightrecorder.internal.EventArrays;
+import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
+import org.springframework.util.StopWatch;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
+import pl.ks.jfr.parser.tuning.PreStackFilter;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -41,34 +45,29 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import lombok.extern.slf4j.Slf4j;
-import org.openjdk.jmc.common.item.IAccessorKey;
-import org.openjdk.jmc.common.item.IItem;
-import org.openjdk.jmc.common.item.IMemberAccessor;
-import org.openjdk.jmc.common.unit.IQuantity;
-import org.openjdk.jmc.common.unit.ITypedQuantity;
-import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
-import org.openjdk.jmc.flightrecorder.JfrAttributes;
-import org.openjdk.jmc.flightrecorder.internal.EventArray;
-import org.openjdk.jmc.flightrecorder.internal.EventArrays;
-import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
-import org.springframework.util.StopWatch;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
-import pl.ks.jfr.parser.tuning.PreStackFilter;
+
+import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
+import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
     public static final ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
     public static final ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
     private static final BigDecimal PERCENT_MULTIPLIER = new BigDecimal(100);
-    private static final int UUID_LENGTH = UUID.randomUUID().toString().length();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters, Set<AdditionalLevel> additionalLevels, boolean ecidIsUuid) {
+    public JfrParsedFile parse(List<Path> jfrFiles, List<PreStackFilter> filters, Set<AdditionalLevel> additionalLevels) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         JfrParsedFile jfrParsedFile = new JfrParsedFile();
@@ -76,7 +75,6 @@ class JfrParserImpl implements JfrParser {
                 JfrParserContext.builder()
                         .preStackFilters(filters)
                         .additionalLevels(additionalLevels)
-                        .ecidIsUuid(ecidIsUuid)
                         .file(path)
                         .jfrParsedFile(jfrParsedFile)
                         .build()
@@ -316,7 +314,6 @@ class JfrParserImpl implements JfrParser {
 
             if (accessors.getEcidAccessor() != null) {
                 long ecid = accessors.getEcidAccessor().getMember(event).longValue();
-                System.out.println(ecid);
                 if (ecid != 0) {
                     long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
                     Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
