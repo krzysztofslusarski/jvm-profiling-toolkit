@@ -15,20 +15,16 @@
  */
 package pl.ks.jfr.parser;
 
-import lombok.extern.slf4j.Slf4j;
-import org.openjdk.jmc.common.item.IAccessorKey;
-import org.openjdk.jmc.common.item.IItem;
-import org.openjdk.jmc.common.item.IMemberAccessor;
-import org.openjdk.jmc.common.unit.IQuantity;
-import org.openjdk.jmc.common.unit.ITypedQuantity;
-import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
-import org.openjdk.jmc.flightrecorder.JfrAttributes;
-import org.openjdk.jmc.flightrecorder.internal.EventArray;
-import org.openjdk.jmc.flightrecorder.internal.EventArrays;
-import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
-import org.springframework.util.StopWatch;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
-import pl.ks.jfr.parser.tuning.PreStackFilter;
+import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
+import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -48,17 +44,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-
-import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
-import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
+import lombok.extern.slf4j.Slf4j;
+import org.openjdk.jmc.common.item.IAccessorKey;
+import org.openjdk.jmc.common.item.IItem;
+import org.openjdk.jmc.common.item.IMemberAccessor;
+import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
+import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
+import org.openjdk.jmc.flightrecorder.JfrAttributes;
+import org.openjdk.jmc.flightrecorder.internal.EventArray;
+import org.openjdk.jmc.flightrecorder.internal.EventArrays;
+import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
+import org.springframework.util.StopWatch;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
+import pl.ks.jfr.parser.tuning.PreStackFilter;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
@@ -216,19 +215,23 @@ class JfrParserImpl implements JfrParser {
             int scaledJvmTotal = scaledJvmSystem + scaledJvmUser;
             int scaledMachineTotal = BigDecimal.valueOf(machineTotal.doubleValue()).multiply(PERCENT_MULTIPLIER).setScale(0, RoundingMode.HALF_EVEN).intValue();
 
-            jfrParsedFile.getCpuLoadJvmUser().addSingleStack(createCpuLoadStack("JVM user", scaledJvmUser));
-            jfrParsedFile.getCpuLoadJvmSystem().addSingleStack(createCpuLoadStack("JVM system", scaledJvmSystem));
-            jfrParsedFile.getCpuLoadJvmTotal().addSingleStack(createCpuLoadStack("JVM total", scaledJvmTotal));
-            jfrParsedFile.getCpuLoadMachineTotal().addSingleStack(createCpuLoadStack("Machine total", scaledMachineTotal));
-            jfrParsedFile.getCpuLoadMachineTotalMinusJvmTotal().addSingleStack(createCpuLoadStack("Machine total - JVM total", scaledMachineTotal - scaledJvmTotal));
+            jfrParsedFile.getCpuLoadJvmUser().addSingleStack(createCpuLoadStack(context, "JVM user", scaledJvmUser));
+            jfrParsedFile.getCpuLoadJvmSystem().addSingleStack(createCpuLoadStack(context, "JVM system", scaledJvmSystem));
+            jfrParsedFile.getCpuLoadJvmTotal().addSingleStack(createCpuLoadStack(context, "JVM total", scaledJvmTotal));
+            jfrParsedFile.getCpuLoadMachineTotal().addSingleStack(createCpuLoadStack(context, "Machine total", scaledMachineTotal));
+            jfrParsedFile.getCpuLoadMachineTotalMinusJvmTotal().addSingleStack(createCpuLoadStack(context, "Machine total - JVM total", scaledMachineTotal - scaledJvmTotal));
         });
     }
 
-    private static String createCpuLoadStack(String prefix, int counter) {
+    private static String createCpuLoadStack(JfrParserContext context, String prefix, int counter) {
         if (counter < 0) {
             counter = 0;
         }
         StringBuilder builder = new StringBuilder(prefix);
+        if (context.isIncludeFileName()) {
+            String filename = context.getFile().getFileName().toString();
+            builder.append(";").append(filename).append("_[i]");
+        }
 
         for (int i = 0; i <= counter; i++) {
             builder.append(";").append(i).append("%");
