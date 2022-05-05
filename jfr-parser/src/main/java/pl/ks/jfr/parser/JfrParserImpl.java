@@ -255,6 +255,7 @@ class JfrParserImpl implements JfrParser {
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .allocationSizeAccessor(JfrParserHelper.findAllocSizeAccessor(eventArray))
                 .objectClassAccessor(JfrParserHelper.findObjectClassAccessor(eventArray))
+                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -279,6 +280,7 @@ class JfrParserImpl implements JfrParser {
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .monitorClassAccessor(JfrParserHelper.findMonitorClassAccessor(eventArray))
+                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {

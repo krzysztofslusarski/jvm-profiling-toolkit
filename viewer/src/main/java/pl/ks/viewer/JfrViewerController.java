@@ -123,6 +123,9 @@ class JfrViewerController {
         if (ON.equals(params.get("extractFilename"))) {
             additionalLevels.add(AdditionalLevel.FILENAME);
         }
+        if (ON.equals(params.get("extractEcid"))) {
+            additionalLevels.add(AdditionalLevel.ECID);
+        }
         builder.additionalLevels(additionalLevels);
 
         return builder.build();

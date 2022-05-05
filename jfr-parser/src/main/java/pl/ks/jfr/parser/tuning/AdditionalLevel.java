@@ -20,5 +20,6 @@ public enum AdditionalLevel {
     TIMESTAMP_10_S,
     TIMESTAMP_1_S,
     TIMESTAMP_100_MS,
-    FILENAME
+    FILENAME,
+    ECID,
 }

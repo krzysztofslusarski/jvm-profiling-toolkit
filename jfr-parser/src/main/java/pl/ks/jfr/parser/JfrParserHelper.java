@@ -15,9 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -29,6 +26,10 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -108,6 +109,10 @@ class JfrParserHelper {
         List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
 
         StringBuilder builder = new StringBuilder();
+
+        if (context.isIncludeEcid() && accessors.getEcidAccessor() != null) {
+            builder.append(accessors.getEcidAccessor().getMember(event).longValue()).append(";");
+        }
 
         if (context.isIncludeAnyTimestampAndDate()) {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
