@@ -16,7 +16,7 @@ mvn clean package
 JAVA_HOME should point to JDK 11.
 
 ## How to run
-`java -jar profiling-toolkit.jar`
+`java -jar viewer-application/target/viewer-application.jar`
 
 Java should point to JDK 11. After you run it, viewer is available on `http://localhost:8079/`.
 
