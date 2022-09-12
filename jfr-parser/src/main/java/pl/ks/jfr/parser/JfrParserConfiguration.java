@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class JfrParserConfiguration {
     @Bean
-    JfrParser jfrParser() {
-        return new JfrParserImpl();
+    JfrCollapsedParser jfrParser() {
+        return new JfrCollapsedParserImpl();
     }
 }

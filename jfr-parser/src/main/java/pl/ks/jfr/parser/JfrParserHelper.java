@@ -15,6 +15,9 @@
  */
 package pl.ks.jfr.parser;
 
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -26,10 +29,6 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
-
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -104,7 +103,7 @@ class JfrParserHelper {
         return false;
     }
 
-    static String fetchFlatStackTrace(IItem event, JfrAccessors accessors, JfrParserContext context) {
+    static String fetchFlatStackTrace(IItem event, JfrAccessors accessors, JfrCollapsedParserContext context) {
         String threadName = accessors.getThreadAccessor().getMember(event).getThreadName();
         List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
 
@@ -118,18 +117,18 @@ class JfrParserHelper {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
             if (context.isIncludeTimestamp100MSAndDate()) {
                 long time = startTime.longValue() / 1000000 / 100;
-                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
-                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 100))).append("_[k];");
+                builder.append(JfrCollapsedParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrCollapsedParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 100))).append("_[k];");
             }
             if (context.isIncludeTimestamp1SAndDate()) {
                 long time = startTime.longValue() / 1000000 / 1000;
-                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
-                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 1000))).append("_[k];");
+                builder.append(JfrCollapsedParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrCollapsedParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 1000))).append("_[k];");
             }
             if (context.isIncludeTimestamp10SAndDate()) {
                 long time = startTime.longValue() / 1000000 / 10000;
-                builder.append(JfrParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
-                builder.append(JfrParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 10000))).append("_[k];");
+                builder.append(JfrCollapsedParserImpl.TIME_STAMP_FORMAT.get().format(time)).append("_");
+                builder.append(JfrCollapsedParserImpl.OUTPUT_FORMAT.get().format(new Date(time * 10000))).append("_[k];");
             }
         }
 

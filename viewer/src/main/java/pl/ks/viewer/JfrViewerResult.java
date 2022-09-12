@@ -18,11 +18,11 @@ package pl.ks.viewer;
 import java.util.Map;
 import lombok.Builder;
 import lombok.Value;
-import pl.ks.jfr.parser.JfrParsedFile;
+import pl.ks.jfr.parser.JfrCollapsedParsedFile;
 
 @Value
 @Builder
 public class JfrViewerResult {
-    Map<JfrParsedFile.Type, String> collapsedFiles;
-    JfrParsedFile jfrParsedFile;
+    Map<JfrCollapsedParsedFile.Type, String> collapsedFiles;
+    JfrCollapsedParsedFile jfrCollapsedParsedFile;
 }

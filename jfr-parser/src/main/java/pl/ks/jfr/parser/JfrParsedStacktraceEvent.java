@@ -15,9 +15,14 @@
  */
 package pl.ks.jfr.parser;
 
-import java.nio.file.Path;
-import java.util.List;
+import java.time.Instant;
+import lombok.Value;
 
-public interface JfrParser {
-    JfrParsedFile parse(List<Path> jfrFiles);
+@Value
+public class JfrParsedStacktraceEvent {
+    String[] stacktrace;
+    String correlationId;
+    String threadName;
+    String filename;
+    Instant eventTime;
 }

@@ -15,6 +15,12 @@
  */
 package pl.ks.viewer;
 
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -25,13 +31,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 import pl.ks.viewer.io.TempFileUtils;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @Controller
 @RequiredArgsConstructor
@@ -57,7 +56,7 @@ class JfrViewerController {
         }
         JfrViewerResult converted = jfrViewerService.convertToCollapsed(savedCopies, createConfig(params));
         model.addAttribute("collapsed", converted.getCollapsedFiles().entrySet());
-        model.addAttribute("jfr", converted.getJfrParsedFile());
+        model.addAttribute("jfr", converted.getJfrCollapsedParsedFile());
         return "uploaded-jfr";
     }
 
