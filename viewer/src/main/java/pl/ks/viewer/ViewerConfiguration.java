@@ -19,11 +19,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import pl.ks.jfr.parser.JfrCollapsedParser;
+import pl.ks.jfr.parser.JfrParser;
 
 @Configuration(proxyBeanMethods = false)
 @RequiredArgsConstructor
 class ViewerConfiguration {
     private final JfrCollapsedParser jfrCollapsedParser;
+    private final JfrParser jfrParser;
 
     @Bean
     CollapsedStackPageCreator collapsedStackPageCreator() {
@@ -33,5 +35,10 @@ class ViewerConfiguration {
     @Bean
     JfrViewerService jfrViewerService() {
         return new JfrViewerService(jfrCollapsedParser);
+    }
+
+    @Bean
+    StatefulJfrViewerService statefulJfrViewerService() {
+        return new StatefulJfrViewerService(jfrParser);
     }
 }

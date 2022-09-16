@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pl.ks.viewer.creator.FlameGraphsCreator;
@@ -54,7 +53,7 @@ class CollapsedStackPageCreator {
         return pageCreators.stream()
                 .map(PageCreator::create)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private CollapsedStackInfo parse(String filename) {

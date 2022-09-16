@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +54,7 @@ class JfrViewerService {
     JfrViewerResult convertToCollapsed(List<String> files, JfrViewerFilterAndLevelConfig config) throws IOException {
         List<Path> paths = files.stream()
                 .map(Paths::get)
-                .collect(Collectors.toList());
+                .toList();
 
         JfrCollapsedParsedFile parsedFile = jfrCollapsedParser.parseCollapsed(paths, createFilters(config, paths), config.getAdditionalLevels());
         Map<JfrCollapsedParsedFile.Type, String> collapsedFiles = new LinkedHashMap<>();

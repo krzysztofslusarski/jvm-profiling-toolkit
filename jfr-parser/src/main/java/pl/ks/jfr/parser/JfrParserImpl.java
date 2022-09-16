@@ -40,6 +40,7 @@ class JfrParserImpl implements JfrParser {
         log.info("Parsing JFR");
 
         try {
+            jfrParsedFile.addFilename(filename);
             EventArrays flightRecording = getFlightRecording(file);
 
             for (EventArray eventArray : flightRecording.getArrays()) {

@@ -32,10 +32,11 @@ import pl.ks.viewer.io.TempFileUtils;
 @RequiredArgsConstructor
 class StatefulJfrViewerController {
     public static final String ON = "on";
-    private final JfrViewerService jfrViewerService;
+    private final StatefulJfrViewerService jfrViewerService;
 
     @GetMapping("/stateful-jfr")
-    String uploadJfr() {
+    String uploadJfr(Model model) {
+        model.addAttribute("files", jfrViewerService.getFiles());
         return "stateful-jfr";
     }
 
@@ -49,6 +50,7 @@ class StatefulJfrViewerController {
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);
         }
-        return "stateful-jfr";
+        jfrViewerService.parseNewFiles(savedCopies);
+        return uploadJfr(model);
     }
 }

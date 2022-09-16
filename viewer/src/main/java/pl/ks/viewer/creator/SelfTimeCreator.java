@@ -22,7 +22,6 @@ import java.text.DecimalFormatSymbols;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import pl.ks.viewer.CollapsedStackInfo;
 import pl.ks.viewer.MethodInfo;
@@ -51,7 +50,7 @@ public class SelfTimeCreator implements PageCreator {
         List<MethodInfo> methodsToList = collapsedStackInfo.getMethods().stream()
                 .filter(methodEntry -> overThreshold(totalCount, methodEntry))
                 .sorted(Comparator.comparingLong(MethodInfo::getSelfSamples).reversed())
-                .collect(Collectors.toList());
+                .toList();
         return Page.builder()
                 .fullName("Method self time")
                 .menuName("Method self time")
@@ -72,7 +71,7 @@ public class SelfTimeCreator implements PageCreator {
                                                                 .toMethodRoot(LinkUtils.getToMethodRootHref(collapsedStackFileName, title, methodEntry.getName(), totalTimeThreshold, selfTimeThreshold))
                                                                 .build())
                                                         .build())
-                                                .collect(Collectors.toList())
+                                                .toList()
                                 )
                                 .build()
                 ))

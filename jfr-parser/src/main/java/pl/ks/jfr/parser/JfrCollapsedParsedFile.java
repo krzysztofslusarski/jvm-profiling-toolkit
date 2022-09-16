@@ -19,7 +19,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import pl.ks.collapsed.CollapsedStack;
@@ -48,7 +47,7 @@ public class JfrCollapsedParsedFile {
         return ecidInfo.values().stream()
                 .sorted(Comparator.comparing(JfrEcidInfo::timeDiff).reversed())
                 .limit(limit)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public CollapsedStack get(Type type) {

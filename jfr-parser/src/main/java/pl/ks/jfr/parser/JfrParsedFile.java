@@ -31,11 +31,16 @@ public class JfrParsedFile {
     private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
     private final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
     private final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
+    private final List<String> filenames = new ArrayList<>();
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
 
     private final Instant parseStartDate = Instant.now();
     private Instant minEventDate;
     private Instant maxEventDate;
+
+    void addFilename(String filename) {
+        filenames.add(filename);
+    }
 
     void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
         synchronized (executionSamples) {
@@ -107,6 +112,10 @@ public class JfrParsedFile {
 
     public Instant getMaxEventDate() {
         return maxEventDate;
+    }
+
+    public List<String> getFilenames() {
+        return filenames;
     }
 
     public <T> CollapsedStack asCollapsed(List<T> samples, Function<T, String[]> toStackFunction) {

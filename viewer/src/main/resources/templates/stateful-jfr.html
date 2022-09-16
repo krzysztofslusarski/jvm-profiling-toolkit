@@ -33,8 +33,38 @@
         </div>
 
         <div class="col s12">
-            <form method="POST" enctype="multipart/form-data" action="/upload-jfr" target="_blank">
+            <form method="POST" enctype="multipart/form-data" action="/stateful-jfr" target="_blank">
                 <div class="card">
+                    <div class="card-content">
+                        <div class="card-title">
+                            Files in memory
+                        </div>
+
+                        <div class="row" th:inline="text" th:if="${!files.isEmpty()}">
+                            <table class="table table-striped table-bordered table-sm big-font"
+                                   th:style="'width::100%;'">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Import date</th>
+                                    <th>Imported files</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="file, fileStatus: ${files}" th:inline="text">
+                                    <td>[[${file.id}]]</td>
+                                    <td>[[${file.parseStartDate}]]</td>
+                                    <td>
+                                        <p th:each="fileName, fileNameStatus: ${file.filenames}" th:inline="text">
+                                            [[${fileName}]]
+                                        </p>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="card-content">
                         <div class="card-title">
                             Import from files
@@ -76,73 +106,5 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
-<script type="text/javascript">
-    $("#threadFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#threadFilterContent").show();
-        } else {
-            $("#threadFilterContent").hide();
-        }
-    });
-    $("#ecidFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#ecidFilterContent").show();
-        } else {
-            $("#ecidFilterContent").hide();
-        }
-    });
-    $("#startEndTimestampOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#startEndTimestampContent").show();
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#warmupCooldownContent").hide();
-            $("#warmupDurationContent").hide();
-            $("#endDurationContent").hide();
-        } else {
-            $("#startEndTimestampContent").hide();
-        }
-    });
-    $("#endDurationOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#endDurationContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#warmupCooldownContent").hide();
-            $("#warmupDurationContent").hide();
-        } else {
-            $("#endDurationContent").hide();
-        }
-    });
-    $("#warmupCooldownOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#warmupCooldownContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#endDurationContent").hide();
-            $("#warmupDurationContent").hide();
-        } else {
-            $("#warmupCooldownContent").hide();
-        }
-    });
-    $("#warmupDurationOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#warmupDurationContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#endDurationContent").hide();
-            $("#warmupCooldownContent").hide();
-        } else {
-            $("#warmupDurationContent").hide();
-        }
-    });
-</script>
 </body>
 </html>
