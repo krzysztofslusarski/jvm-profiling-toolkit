@@ -19,10 +19,13 @@ import static java.util.function.Function.identity;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.logging.log4j.util.Strings;
+import pl.ks.collapsed.CollapsedStack;
 
 public class JfrParsedFile {
     private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
@@ -104,5 +107,16 @@ public class JfrParsedFile {
 
     public Instant getMaxEventDate() {
         return maxEventDate;
+    }
+
+    public <T> CollapsedStack asCollapsed(List<T> samples, Function<T, String[]> toStackFunction) {
+        CollapsedStack collapsedStack = new CollapsedStack();
+        samples.stream().parallel()
+                .map(toStackFunction)
+                .forEach(stack -> {
+                    String stackJoined = Strings.join(Arrays.asList(stack), ';');
+                    collapsedStack.add(stackJoined, 1L);
+                });
+        return collapsedStack;
     }
 }

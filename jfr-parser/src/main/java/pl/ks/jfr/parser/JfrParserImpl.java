@@ -9,7 +9,6 @@ import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -158,10 +157,5 @@ class JfrParserImpl implements JfrParser {
             stackTrace[i] = jfrParsedFile.getCanonicalString(stackTraceBuilder.toString());
         }
         return stackTrace;
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        JfrParsedFile parsedFile = new JfrParserImpl().parse(Collections.singletonList(Path.of("/home/pasq/Hazelcast/ContextProfiling/10.212.1.101.jfr.gz")));
-        Thread.sleep(1_000L * 1_000L * 1_000L);
     }
 }

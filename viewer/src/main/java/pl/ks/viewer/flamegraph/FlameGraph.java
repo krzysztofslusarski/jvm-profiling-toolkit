@@ -64,30 +64,34 @@ class FlameGraph {
 
     public void parse(Reader in) throws IOException {
         try (BufferedReader br = new BufferedReader(in)) {
-            for (String line; (line = br.readLine()) != null; ) {
-                int space = line.lastIndexOf(' ');
-                if (space <= 0) continue;
+            parse(br);
+        }
+    }
 
-                String[] trace = line.substring(0, space).split(";");
-                long ticks = Long.parseLong(line.substring(space + 1));
+    public void parse(BufferedReader br) throws IOException {
+        for (String line; (line = br.readLine()) != null; ) {
+            int space = line.lastIndexOf(' ');
+            if (space <= 0) continue;
 
-                depth = Math.max(depth, trace.length);
+            String[] trace = line.substring(0, space).split(";");
+            long ticks = Long.parseLong(line.substring(space + 1));
 
-                Frame frame = root;
-                if (reverse) {
-                    for (int i = trace.length; --i >= skip; ) {
-                        frame.total += ticks;
-                        frame = frame.child(trace[i]);
-                    }
-                } else {
-                    for (int i = skip; i < trace.length; i++) {
-                        frame.total += ticks;
-                        frame = frame.child(trace[i]);
-                    }
+            depth = Math.max(depth, trace.length);
+
+            Frame frame = root;
+            if (reverse) {
+                for (int i = trace.length; --i >= skip; ) {
+                    frame.total += ticks;
+                    frame = frame.child(trace[i]);
                 }
-                frame.total += ticks;
-                frame.self += ticks;
+            } else {
+                for (int i = skip; i < trace.length; i++) {
+                    frame.total += ticks;
+                    frame = frame.child(trace[i]);
+                }
             }
+            frame.total += ticks;
+            frame.self += ticks;
         }
     }
 

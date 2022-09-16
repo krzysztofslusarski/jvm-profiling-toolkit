@@ -15,13 +15,17 @@
  */
 package pl.ks.viewer.flamegraph;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import pl.ks.collapsed.CollapsedStack;
+import pl.ks.collapsed.CollapsedStackBufferedReader;
 
 @Slf4j
 @RequiredArgsConstructor
 public class FlameGraphExecutor {
-    public void generateFlameGraphHtml5(String inputFile, String outputFile, String title, boolean reversed, boolean hotspot) {
+    public void generateFlameGraphHtml5(String inputFile, String outputFile, String title, boolean reversed) {
         try {
             String[] args;
             if (reversed) {
@@ -32,6 +36,25 @@ public class FlameGraphExecutor {
             FlameGraph flameGraph = new FlameGraph(args);
             flameGraph.parse();
             flameGraph.dump();
+        } catch (Exception e) {
+            log.error("Fatal error", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    public byte[] generateFlameGraphHtml5(CollapsedStack inputFile, String title, boolean reversed) {
+        try {
+            String[] args;
+            if (reversed) {
+                args = new String[]{"--title", title, "--reverse"};
+            } else {
+                args = new String[]{"--title", title};
+            }
+            FlameGraph flameGraph = new FlameGraph(args);
+            flameGraph.parse(new CollapsedStackBufferedReader(inputFile));
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            flameGraph.dump(new PrintStream(byteArrayOutputStream));
+            return byteArrayOutputStream.toByteArray();
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);

@@ -113,7 +113,7 @@ class CollapsedStackViewerController {
                          @RequestParam("title") String title) throws Exception {
         String collapsedFilePath = TempFileUtils.getFilePath(collapsed);
         String outputHtmlFilePath = TempFileUtils.getFilePath(collapsed + ".html");
-        flameGraphExecutor.generateFlameGraphHtml5(collapsedFilePath, outputHtmlFilePath, "Flame graph - " + title, false, false);
+        flameGraphExecutor.generateFlameGraphHtml5(collapsedFilePath, outputHtmlFilePath, "Flame graph - " + title, false);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
@@ -145,7 +145,7 @@ class CollapsedStackViewerController {
             }
         }
 
-        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Flame graph - no thread division - " + title, false, false);
+        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Flame graph - no thread division - " + title, false);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
@@ -189,7 +189,7 @@ class CollapsedStackViewerController {
             }
         }
 
-        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Flame graph - hotspot - " + title, true, true);
+        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Flame graph - hotspot - " + title, true);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
@@ -205,7 +205,7 @@ class CollapsedStackViewerController {
                                 @RequestParam("title") String title) throws Exception {
         String collapsedFileName = TempFileUtils.getFilePath(collapsed);
         String outputHtmlFilePath = TempFileUtils.getFilePath(collapsed + ".hotspot.html");
-        flameGraphExecutor.generateFlameGraphHtml5(collapsedFileName, outputHtmlFilePath, "Flame graph - hotspot - " + title, true, true);
+        flameGraphExecutor.generateFlameGraphHtml5(collapsedFileName, outputHtmlFilePath, "Flame graph - hotspot - " + title, true);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
@@ -243,7 +243,7 @@ class CollapsedStackViewerController {
                 fromWriter.newLine();
             }
         }
-        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Callee - " + title + " - " + method, false, false);
+        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Callee - " + title + " - " + method, false);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
@@ -322,7 +322,7 @@ class CollapsedStackViewerController {
                 toWriter.newLine();
             }
         }
-        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Callers - " + title + " - " + method, true, false);
+        flameGraphExecutor.generateFlameGraphHtml5(outputCollapsedFilePath, outputHtmlFilePath, "Callers - " + title + " - " + method, true);
         byte[] response = null;
         try (InputStream inputStream = new FileInputStream(outputHtmlFilePath);) {
             response = IOUtils.toByteArray(inputStream);
