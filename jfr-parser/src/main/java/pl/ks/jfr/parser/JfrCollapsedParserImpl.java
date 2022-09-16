@@ -15,21 +15,21 @@
  */
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncWallEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
-import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
+import lombok.extern.slf4j.Slf4j;
+import org.openjdk.jmc.common.item.IAccessorKey;
+import org.openjdk.jmc.common.item.IItem;
+import org.openjdk.jmc.common.item.IMemberAccessor;
+import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
+import org.openjdk.jmc.flightrecorder.JfrAttributes;
+import org.openjdk.jmc.flightrecorder.internal.EventArray;
+import org.openjdk.jmc.flightrecorder.internal.EventArrays;
+import org.springframework.util.StopWatch;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
+import pl.ks.jfr.parser.tuning.PreStackFilter;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Date;
 import java.text.DecimalFormat;
@@ -43,21 +43,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.GZIPInputStream;
-import lombok.extern.slf4j.Slf4j;
-import org.openjdk.jmc.common.item.IAccessorKey;
-import org.openjdk.jmc.common.item.IItem;
-import org.openjdk.jmc.common.item.IMemberAccessor;
-import org.openjdk.jmc.common.unit.IQuantity;
-import org.openjdk.jmc.common.unit.ITypedQuantity;
-import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
-import org.openjdk.jmc.flightrecorder.JfrAttributes;
-import org.openjdk.jmc.flightrecorder.internal.EventArray;
-import org.openjdk.jmc.flightrecorder.internal.EventArrays;
-import org.openjdk.jmc.flightrecorder.internal.FlightRecordingLoader;
-import org.springframework.util.StopWatch;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
-import pl.ks.jfr.parser.tuning.PreStackFilter;
+
+import static pl.ks.jfr.parser.JfrParserHelper.fetchFlatStackTrace;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isInitialSystemProperty;
+import static pl.ks.jfr.parser.JfrParserHelper.isJvmInfoEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isOsInfoEvent;
+import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
 @Slf4j
 class JfrCollapsedParserImpl implements JfrCollapsedParser {
@@ -94,7 +91,7 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
             for (Path path : paths.collect(Collectors.toList())) {
                 EventArrays flightRecording = getFlightRecording(path);
                 for (EventArray eventArray : flightRecording.getArrays()) {
-                    if (!isAsyncWallEvent(eventArray) && !isLockEvent(eventArray) && !isAsyncAllocNewTLABEvent(eventArray) && !isAsyncAllocOutsideTLABEvent(eventArray)) {
+                    if (!isExecutionSampleEvent(eventArray) && !isLockEvent(eventArray) && !isAsyncAllocNewTLABEvent(eventArray) && !isAsyncAllocOutsideTLABEvent(eventArray)) {
                         continue;
                     }
                     IMemberAccessor<IQuantity, IItem> startTimeAccessor = JfrAttributes.START_TIME.getAccessor(eventArray.getType());
@@ -132,7 +129,7 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
             EventArrays flightRecording = getFlightRecording(context.getFile());
 
             for (EventArray eventArray : flightRecording.getArrays()) {
-                if (isAsyncWallEvent(eventArray)) {
+                if (isExecutionSampleEvent(eventArray)) {
                     processWallEvent(context, eventArray);
                 } else if (isLockEvent(eventArray)) {
                     processLockEvent(context, eventArray);
@@ -341,12 +338,5 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
             }
         }
         return false;
-    }
-
-    private static EventArrays getFlightRecording(Path file) throws IOException, CouldNotLoadRecordingException {
-        if (file.getFileName().toString().toLowerCase().endsWith(".jfr.gz")) {
-            return FlightRecordingLoader.loadStream(new GZIPInputStream(Files.newInputStream(file)), false, false);
-        }
-        return FlightRecordingLoader.loadStream(Files.newInputStream(file), false, false);
     }
 }

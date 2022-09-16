@@ -15,9 +15,6 @@
  */
 package pl.ks.jfr.parser;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -29,6 +26,10 @@ import org.openjdk.jmc.common.unit.IQuantity;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.StructContentType;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 class JfrParserHelper {
     static boolean isAsyncAllocNewTLABEvent(EventArray event) {
@@ -55,7 +56,7 @@ class JfrParserHelper {
         return false;
     }
 
-    static boolean isAsyncWallEvent(EventArray event) {
+    static boolean isExecutionSampleEvent(EventArray event) {
         if (event.getType() instanceof StructContentType) {
             StructContentType structContentType = (StructContentType) event.getType();
             return structContentType.getIdentifier().equals("jdk.ExecutionSample");
@@ -268,7 +269,7 @@ class JfrParserHelper {
         return "STATE_RUNNABLE".equals(state);
     }
 
-    private static String replaceCharacter(String str, char toReplace, char replacedWith) {
+    static String replaceCharacter(String str, char toReplace, char replacedWith) {
         char[] chars = str.toCharArray();
         for (int i = 0; i < chars.length; i++) {
             if (chars[i] == toReplace) {

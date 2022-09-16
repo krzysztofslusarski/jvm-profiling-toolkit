@@ -16,13 +16,24 @@
 package pl.ks.jfr.parser;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
-import lombok.Value;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-@Value
 public class JfrParsedFile {
-    Instant minEventDate;
-    Instant maxEventDate;
+    private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
+    private final Map<String, String> canonicalFrames = new ConcurrentHashMap<>();
+    private Instant minEventDate;
+    private Instant maxEventDate;
 
-    List<JfrParsedStacktraceEvent> wall;
+    public void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
+        synchronized (executionSamples) {
+            executionSamples.add(event);
+        }
+    }
+
+    public Map<String, String> getCanonicalFrames() {
+        return canonicalFrames;
+    }
 }

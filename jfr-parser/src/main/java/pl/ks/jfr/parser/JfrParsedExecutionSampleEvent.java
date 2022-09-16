@@ -15,14 +15,18 @@
  */
 package pl.ks.jfr.parser;
 
-import java.time.Instant;
+import lombok.Builder;
 import lombok.Value;
 
+import java.time.Instant;
+
 @Value
-public class JfrParsedStacktraceEvent {
-    String[] stacktrace;
-    String correlationId;
+@Builder
+public class JfrParsedExecutionSampleEvent {
+    String[] stackTrace;
+    long correlationId;
     String threadName;
     String filename;
     Instant eventTime;
+    boolean consumesCpu;
 }
