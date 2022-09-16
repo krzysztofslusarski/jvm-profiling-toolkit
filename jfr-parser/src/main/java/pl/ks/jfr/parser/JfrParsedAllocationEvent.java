@@ -15,18 +15,19 @@
  */
 package pl.ks.jfr.parser;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import java.time.Instant;
+import lombok.Builder;
+import lombok.Value;
 
-@Configuration(proxyBeanMethods = false)
-class JfrParserConfiguration {
-    @Bean
-    JfrCollapsedParser jfrCollapsedParser() {
-        return new JfrCollapsedParserImpl();
-    }
-
-    @Bean
-    JfrParser jfrParser() {
-        return new JfrParserImpl();
-    }
+@Value
+@Builder
+public class JfrParsedAllocationEvent {
+    String[] stackTrace;
+    long correlationId;
+    String threadName;
+    String filename;
+    Instant eventTime;
+    String objectClass;
+    long size;
+    boolean outsideTLAB;
 }

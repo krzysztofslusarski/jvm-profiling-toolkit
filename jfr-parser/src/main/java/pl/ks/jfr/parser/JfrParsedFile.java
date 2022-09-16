@@ -15,25 +15,94 @@
  */
 package pl.ks.jfr.parser;
 
+import static java.util.function.Function.identity;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public class JfrParsedFile {
     private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
-    private final Map<String, String> canonicalFrames = new ConcurrentHashMap<>();
+    private final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
+    private final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
+    private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
+
+    private final Instant parseStartDate = Instant.now();
     private Instant minEventDate;
     private Instant maxEventDate;
 
-    public void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
+    void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
         synchronized (executionSamples) {
             executionSamples.add(event);
         }
     }
 
-    public Map<String, String> getCanonicalFrames() {
-        return canonicalFrames;
+    void addAllocationSampleEvent(JfrParsedAllocationEvent event) {
+        synchronized (allocationSamples) {
+            allocationSamples.add(event);
+        }
+    }
+
+    void addLockSampleEvent(JfrParsedLockEvent event) {
+        synchronized (lockSamples) {
+            lockSamples.add(event);
+        }
+    }
+
+    String getCanonicalString(String str) {
+        String canonical = canonicalStrings.putIfAbsent(str, str);
+        return canonical == null ? str : canonical;
+    }
+
+    void calculateAggregatedDates() {
+        minEventDate = getMinDate(List.of(
+                getMinDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
+                getMinDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
+                getMinDate(lockSamples, JfrParsedLockEvent::getEventTime)
+        ), identity());
+        maxEventDate = getMaxDate(List.of(
+                getMaxDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
+                getMaxDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
+                getMaxDate(lockSamples, JfrParsedLockEvent::getEventTime)
+        ), identity());
+    }
+
+    private <T> Instant getMinDate(List<T> events, Function<T, Instant> toDateFunction) {
+        return events.stream().parallel()
+                .map(toDateFunction)
+                .reduce(Instant.MAX, (i1, i2) -> i1.compareTo(i2) > 0 ? i2 : i1);
+    }
+
+    private <T> Instant getMaxDate(List<T> events, Function<T, Instant> toDateFunction) {
+        return events.stream().parallel()
+                .map(toDateFunction)
+                .reduce(Instant.MIN, (i1, i2) -> i1.compareTo(i2) < 0 ? i2 : i1);
+    }
+
+    public List<JfrParsedExecutionSampleEvent> getExecutionSamples() {
+        return executionSamples;
+    }
+
+    public List<JfrParsedAllocationEvent> getAllocationSamples() {
+        return allocationSamples;
+    }
+
+    public List<JfrParsedLockEvent> getLockSamples() {
+        return lockSamples;
+    }
+
+    public Instant getParseStartDate() {
+        return parseStartDate;
+    }
+
+    public Instant getMinEventDate() {
+        return minEventDate;
+    }
+
+    public Instant getMaxEventDate() {
+        return maxEventDate;
     }
 }
