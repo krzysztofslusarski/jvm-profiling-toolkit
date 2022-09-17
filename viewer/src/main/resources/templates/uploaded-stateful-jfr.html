@@ -31,18 +31,18 @@
         <div class="col s2">
             <div class="card">
                 <div class="card-content">
-                    <div class="row" th:if="${file.executionSamples.size() > 0}">
+                    <p class="row" th:if="${file.executionSamples.size() > 0}">
                         <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/execution?id=' + ${currentId}">Execution samples</a>
-                    </div>
-                    <div class="row" th:if="${file.allocationSamples.size() > 0}">
+                    </p>
+                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
                         <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/count?id=' + ${currentId}">Alloc. samples (count)</a>
-                    </div>
-                    <div class="row" th:if="${file.allocationSamples.size() > 0}">
+                    </p>
+                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
                         <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/size?id=' + ${currentId}">Alloc. samples (size)</a>
-                    </div>
-                    <div class="row" th:if="${file.lockSamples.size() > 0}">
+                    </p>
+                    <p class="row" th:if="${file.lockSamples.size() > 0}">
                         <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/lock?id=' + ${currentId}">Lock samples</a>
-                    </div>
+                    </p>
                 </div>
             </div>
 
@@ -195,6 +195,23 @@
 
                 </div>
             </div>
+            <div class="card" id="additionalOptionsContainer">
+                <div class="card-content">
+                    <div class="card-title">
+                        Additional options
+                    </div>
+                    <div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input id="reverseOn" name="reverseOn" type="checkbox"/>
+                                    <span>Reverse flame graph</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="card">
                 <div class="card-content">
@@ -337,6 +354,9 @@
     function goToFlames(pressed) {
         let url = $(pressed).data("url");
         $(".additional-level:checked").each(function (index) {
+            url = url + "&" + $(this).attr("name") + "=on"
+        });
+        $("#additionalOptionsContainer").find("input:checked").each(function (index) {
             url = url + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input:checked").each(function (index) {

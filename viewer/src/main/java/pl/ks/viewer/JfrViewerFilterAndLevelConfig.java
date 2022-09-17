@@ -41,5 +41,6 @@ public class JfrViewerFilterAndLevelConfig {
     long startTs;
     long endTs;
     boolean consumeCpuOn;
+    boolean reverseOn;
     Set<AdditionalLevel> additionalLevels;
 }

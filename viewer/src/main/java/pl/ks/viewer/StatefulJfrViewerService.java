@@ -59,7 +59,7 @@ class StatefulJfrViewerService {
             samples = samples.filter(filter);
         }
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", false);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
     }
 
     byte[] getAllocationSamplesCount(UUID uuid, JfrViewerFilterAndLevelConfig config) {
@@ -71,7 +71,7 @@ class StatefulJfrViewerService {
             samples = samples.filter(filter);
         }
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", false);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", config.isReverseOn());
     }
 
     byte[] getAllocationSamplesSize(UUID uuid, JfrViewerFilterAndLevelConfig config) {
@@ -83,7 +83,7 @@ class StatefulJfrViewerService {
             samples = samples.filter(filter);
         }
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", false);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", config.isReverseOn());
     }
 
     byte[] getLockSamples(UUID uuid, JfrViewerFilterAndLevelConfig config) {
@@ -95,7 +95,7 @@ class StatefulJfrViewerService {
             samples = samples.filter(filter);
         }
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", false);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", config.isReverseOn());
     }
 
     UUID parseNewFiles(List<String> files) {

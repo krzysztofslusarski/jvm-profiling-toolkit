@@ -14,6 +14,9 @@ abstract class JfrControllerCommon {
         boolean consumeCpuOn = ON.equals(params.get("consumeCpuOn"));
         builder.consumeCpuOn(consumeCpuOn);
 
+        boolean reverseOn = ON.equals(params.get("reverseOn"));
+        builder.reverseOn(reverseOn);
+
         boolean threadFilterOn = ON.equals(params.get("threadFilterOn"));
         builder.threadFilterOn(threadFilterOn);
         if (threadFilterOn) {
