@@ -28,25 +28,225 @@
 
 <div>
     <div class="row">
-        <div class="col s12 center-align">
-            <h3>JFR viewer</h3>
-        </div>
-
         <div class="col s2">
             <div class="card">
                 <div class="card-content">
                     <div class="row" th:if="${file.executionSamples.size() > 0}">
                         <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/execution?id=' + ${currentId}">Execution samples</a>
                     </div>
+                    <div class="row" th:if="${file.allocationSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/count?id=' + ${currentId}">Alloc. samples (count)</a>
+                    </div>
+                    <div class="row" th:if="${file.allocationSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/size?id=' + ${currentId}">Alloc. samples (size)</a>
+                    </div>
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-content">
+                    <div class="card-title">
+                        Additional filters
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
+                                <span>Thread filter enabled</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="threadFilterContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <input id="threadFilter" name="threadFilter" type="text"/>
+                                <label for="threadFilter">Thread filter</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
+                                <span>ECID filter enabled</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="ecidFilterContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="ecidFilter" name="ecidFilter" type="text"/>
+                                <label for=ecidFilter>ECID filter</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
+                                <span>End date and duration filter enabled (like access log)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="endDurationContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="endDate" name="endDate" type="text"/>
+                                <label for="endDate">End date</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                           <div class="input-field col s12">
+                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text"
+                                       value="dd/MMM/yyyy:HH:mm:ss Z"/>
+                                <label for="endDateDateTimeFormat">End date format</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="duration" name="duration" type="text"/>
+                                <label for="duration">Duration (ms)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
+                                <span>Start/end timestamp (in seconds) filter enabled</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="startEndTimestampContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="startTs" name="startTs" type="text"/>
+                                <label for="startTs">Start timestamp (s)</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="endTs" name="endTs" type="text"/>
+                                <label for="endTs">Start timestamp (s)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox"/>
+                                <span>Warmup/cooldown filter enabled (skips part of JFR file from the beginning and the end)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="warmupCooldownContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="warmup" name="warmup" type="text"/>
+                                <label for="warmup">Warmup (s)</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="cooldown" name="cooldown" type="text"/>
+                                <label for="cooldown">Cooldown (s)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox"/>
+                                <span>Warmup/duration filter enabled (skips part of JFR file from the beginning)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="warmupDurationContent" style="display: none">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="wdWarmup" name="wdWarmup" type="text"/>
+                                <label for="wdWarmup">Warmup (s)</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <input id="wdDuration" name="wdDuration" type="text"/>
+                                <label for="wdDuration">Duration (s)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="consumeCpuOn" name="consumeCpuOn" type="checkbox"/>
+                                <span>Consume CPU</span>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-content">
+                    <div class="card-title">
+                        Additional levels
+                    </div>
+
+                    <div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractThreads" name="extractThreads" type="checkbox" checked/>
+                                    <span>Add thread level</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractTs10S" name="extractTs10S" type="checkbox"/>
+                                    <span>Add timestamp level (10 second window)</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractTs1S" name="extractTs1S" type="checkbox"/>
+                                    <span>Add timestamp level (1 second window)</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms" type="checkbox"/>
+                                    <span>Add timestamp level (100 ms window)</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractFilename" name="extractFilename" type="checkbox"/>
+                                    <span>Add filename level</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s12">
+                                <label>
+                                    <input class="additional-level" id="extractEcid" name="extractEcid" type="checkbox"/>
+                                    <span>Add ECID level</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="col s10">
             <div class="card">
                 <div class="card-content">
-                    <iframe id="flameGraph" width="100%" height="1000px"></iframe>
+                    <iframe id="flameGraph" width="100%" height="1000px" frameBorder="0"></iframe>
                 </div>
             </div>
         </div>
@@ -65,8 +265,77 @@
 <script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script type="text/javascript">
+    $("#threadFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#threadFilterContent").show();
+        } else {
+            $("#threadFilterContent").hide();
+        }
+    });
+    $("#ecidFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#ecidFilterContent").show();
+        } else {
+            $("#ecidFilterContent").hide();
+        }
+    });
+    $("#startEndTimestampOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#startEndTimestampContent").show();
+            $("#endDurationOn").prop("checked", false);
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
+            $("#warmupCooldownContent").hide();
+            $("#warmupDurationContent").hide();
+            $("#endDurationContent").hide();
+        } else {
+            $("#startEndTimestampContent").hide();
+        }
+    });
+    $("#endDurationOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#endDurationContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
+            $("#warmupCooldownContent").hide();
+            $("#warmupDurationContent").hide();
+        } else {
+            $("#endDurationContent").hide();
+        }
+    });
+    $("#warmupCooldownOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#warmupCooldownContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
+            $("#endDurationOn").prop("checked", false);
+            $("#warmupDurationOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
+            $("#endDurationContent").hide();
+            $("#warmupDurationContent").hide();
+        } else {
+            $("#warmupCooldownContent").hide();
+        }
+    });
+    $("#warmupDurationOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#warmupDurationContent").show();
+            $("#startEndTimestampOn").prop("checked", false);
+            $("#endDurationOn").prop("checked", false);
+            $("#warmupCooldownOn").prop("checked", false);
+            $("#startEndTimestampContent").hide();
+            $("#endDurationContent").hide();
+            $("#warmupCooldownContent").hide();
+        } else {
+            $("#warmupDurationContent").hide();
+        }
+    });
     function goToFlames(pressed) {
         let url = $(pressed).data("url");
+        $(".additional-level:checked").each(function (index) {
+            url = url + "&" + $(this).attr("name") + "=on"
+        });
         $("#flameGraph").attr("src", url);
         console.log(url);
         return false;

@@ -15,9 +15,12 @@
  */
 package pl.ks.viewer;
 
+import static pl.ks.viewer.JfrControllerCommon.createConfig;
+
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
@@ -66,7 +69,19 @@ class StatefulJfrViewerController {
 
     @ResponseBody
     @GetMapping("/get-stateful-jfr/samples/execution")
-    byte[] getExecutionSamples(@RequestParam("id") UUID uuid) {
-        return jfrViewerService.getExecutionSamples(uuid);
+    byte[] getExecutionSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getExecutionSamples(uuid, createConfig(params));
+    }
+
+    @ResponseBody
+    @GetMapping("/get-stateful-jfr/samples/allocation/count")
+    byte[] getAllocationSamplesCount(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getAllocationSamplesCount(uuid, createConfig(params));
+    }
+
+    @ResponseBody
+    @GetMapping("/get-stateful-jfr/samples/allocation/size")
+    byte[] getAllocationSamplesSize(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getAllocationSamplesSize(uuid, createConfig(params));
     }
 }

@@ -22,10 +22,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.logging.log4j.util.Strings;
 import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 public class JfrParsedFile {
     private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
@@ -118,14 +121,29 @@ public class JfrParsedFile {
         return filenames;
     }
 
-    public <T> CollapsedStack asCollapsed(List<T> samples, Function<T, String[]> toStackFunction) {
+    public <T> CollapsedStack asCollapsed(
+            List<T> samples,
+            Set<AdditionalLevel> additionalLevels,
+            BiFunction<T, Set<AdditionalLevel>, List<String[]>> toStackFunction,
+            Function<T, Long> toCountFunction
+    ) {
         CollapsedStack collapsedStack = new CollapsedStack();
         samples.stream().parallel()
-                .map(toStackFunction)
-                .forEach(stack -> {
-                    String stackJoined = Strings.join(Arrays.asList(stack), ';');
-                    collapsedStack.add(stackJoined, 1L);
+                .forEach(entry -> {
+                    List<String> subStackTraces = toStackFunction.apply(entry, additionalLevels).stream()
+                            .map(strings -> Strings.join(Arrays.asList(strings), ';'))
+                            .toList();
+                    String stackJoined = Strings.join(subStackTraces, ';');
+                    collapsedStack.add(stackJoined, toCountFunction.apply(entry));
                 });
         return collapsedStack;
+    }
+
+    public <T> CollapsedStack asCollapsed(
+            List<T> samples,
+            Set<AdditionalLevel> additionalLevels,
+            BiFunction<T, Set<AdditionalLevel>, List<String[]>> toStackFunction
+    ) {
+        return asCollapsed(samples, additionalLevels, toStackFunction, ignored -> 1L);
     }
 }

@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.JfrParsedAllocationEvent;
 import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParser;
@@ -37,10 +38,22 @@ class StatefulJfrViewerService {
         return parsedFiles.get(uuid);
     }
 
-    byte[] getExecutionSamples(UUID uuid) {
+    byte[] getExecutionSamples(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(jfrParsedFile.getExecutionSamples(), JfrParsedExecutionSampleEvent::getStackTrace);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(jfrParsedFile.getExecutionSamples(), config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", false);
+    }
+
+    byte[] getAllocationSamplesCount(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(jfrParsedFile.getAllocationSamples(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", false);
+    }
+
+    byte[] getAllocationSamplesSize(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(jfrParsedFile.getAllocationSamples(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", false);
     }
 
     UUID parseNewFiles(List<String> files) {

@@ -16,12 +16,16 @@
 package pl.ks.jfr.parser;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 @Value
 @Builder
-public class JfrParsedAllocationEvent {
+public class JfrParsedAllocationEvent implements JfrParsedCommonStackTraceEvent {
     String[] stackTrace;
     long correlationId;
     String threadName;
@@ -30,4 +34,11 @@ public class JfrParsedAllocationEvent {
     String objectClass;
     long size;
     boolean outsideTLAB;
+
+    public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
+        List<String[]> fullStackTrace = new ArrayList<>();
+        addCommonStackTraceElements(fullStackTrace, additionalLevels);
+        fullStackTrace.add(new String[]{objectClass + (outsideTLAB ? "_[i]" : "_[k]")});
+        return fullStackTrace;
+    }
 }
