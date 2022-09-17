@@ -31,170 +31,46 @@
         <div class="col s2">
             <div class="card">
                 <div class="card-content">
-                    <p class="row" th:if="${file.executionSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/execution?id=' + ${currentId}">Execution samples</a>
+                    <div class="card-title">
+                        What do you need?
+                    </div>
+                    <p class="row">
+                        <a target="_blank" href="#" onclick="return enableFlameGraphs()">Flame graphs</a>
                     </p>
-                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/count?id=' + ${currentId}">Alloc. samples (count)</a>
-                    </p>
-                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/allocation/size?id=' + ${currentId}">Alloc. samples (size)</a>
-                    </p>
-                    <p class="row" th:if="${file.lockSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return goToFlames(this)" th:data-url="'/get-stateful-jfr/samples/lock?id=' + ${currentId}">Lock samples</a>
+                    <p class="row">
+                        <a target="_blank" href="#" onclick="return enableCorrelationId()">Correlation id stats</a>
                     </p>
                 </div>
             </div>
 
-            <div class="card" id="additionalFiltersContainer">
+            <div class="card">
                 <div class="card-content">
                     <div class="card-title">
-                        Additional filters
+                        Available events
                     </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
-                                <span>Thread filter enabled</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="threadFilterContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s6">
-                                <input id="threadFilter" name="threadFilter" type="text"/>
-                                <label for="threadFilter">Thread filter</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
-                                <span>ECID filter enabled</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="ecidFilterContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="ecidFilter" name="ecidFilter" type="text"/>
-                                <label for=ecidFilter>ECID filter</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
-                                <span>End date and duration filter enabled (like access log)</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="endDurationContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="endDate" name="endDate" type="text"/>
-                                <label for="endDate">End date</label>
-                            </div>
-                        </div>
-                        <div class="row">
-                           <div class="input-field col s12">
-                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text"
-                                       value="dd/MMM/yyyy:HH:mm:ss Z"/>
-                                <label for="endDateDateTimeFormat">End date format</label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="duration" name="duration" type="text"/>
-                                <label for="duration">Duration (ms)</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
-                                <span>Start/end timestamp (in seconds) filter enabled</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="startEndTimestampContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="startTs" name="startTs" type="text"/>
-                                <label for="startTs">Start timestamp (s)</label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="endTs" name="endTs" type="text"/>
-                                <label for="endTs">End timestamp (s)</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox"/>
-                                <span>Warmup/cooldown filter enabled (skips part of JFR file from the beginning and the end)</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="warmupCooldownContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="warmup" name="warmup" type="text"/>
-                                <label for="warmup">Warmup (s)</label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="cooldown" name="cooldown" type="text"/>
-                                <label for="cooldown">Cooldown (s)</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox"/>
-                                <span>Warmup/duration filter enabled (skips part of JFR file from the beginning)</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="warmupDurationContent" style="display: none">
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="wdWarmup" name="wdWarmup" type="text"/>
-                                <label for="wdWarmup">Warmup (s)</label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="wdDuration" name="wdDuration" type="text"/>
-                                <label for="wdDuration">Duration (s)</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="consumeCpuOn" name="consumeCpuOn" type="checkbox"/>
-                                <span>Consume CPU</span>
-                            </label>
-                        </div>
-                    </div>
-
+                    <p class="row" th:if="${file.executionSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return updatePages(this)"
+                           th:data-current="${currentId}"
+                           th:data-url="'/stateful-jfr/single/samples/execution?id=' + ${currentId}">Execution samples</a>
+                    </p>
+                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return updatePages(this)"
+                           th:data-current="${currentId}"
+                           th:data-url="'/stateful-jfr/single/samples/allocation/count?id=' + ${currentId}">Alloc. samples (count)</a>
+                    </p>
+                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return updatePages(this)"
+                           th:data-current="${currentId}"
+                           th:data-url="'/stateful-jfr/single/samples/allocation/size?id=' + ${currentId}">Alloc. samples (size)</a>
+                    </p>
+                    <p class="row" th:if="${file.lockSamples.size() > 0}">
+                        <a target="_blank" href="#" onclick="return updatePages(this)"
+                           th:data-current="${currentId}"
+                           th:data-url="'/stateful-jfr/single/samples/lock?id=' + ${currentId}">Lock samples</a>
+                    </p>
                 </div>
             </div>
+
             <div class="card" id="additionalOptionsContainer">
                 <div class="card-content">
                     <div class="card-title">
@@ -213,6 +89,121 @@
                 </div>
             </div>
 
+            <div class="card" id="additionalFiltersContainer">
+                <div class="card-content">
+                    <div class="card-title">
+                        Additional filters
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
+                                <span>Thread filter</span>
+                            </label>
+                        </div>
+                        <div id="threadFilterContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="threadFilter" name="threadFilter" type="text"/>
+                                <label for="threadFilter">Thread filter</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
+                                <span>ECID filter</span>
+                            </label>
+                        </div>
+                        <div id="ecidFilterContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="ecidFilter" name="ecidFilter" type="text"/>
+                                <label for=ecidFilter>ECID filter</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
+                                <span>Access log filter</span>
+                            </label>
+                        </div>
+                        <div id="endDurationContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="endDate" name="endDate" type="text"/>
+                                <label for="endDate">End date</label>
+                            </div>
+                            <div class="input-field col s12">
+                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text"
+                                       value="dd/MMM/yyyy:HH:mm:ss Z"/>
+                                <label for="endDateDateTimeFormat">End date format</label>
+                            </div>
+                            <div class="input-field col s12">
+                                <input id="duration" name="duration" type="text"/>
+                                <label for="duration">Duration (ms)</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
+                                <span>Start/end timestamp filter</span>
+                            </label>
+                        </div>
+                        <div id="startEndTimestampContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="startTs" name="startTs" type="text"/>
+                                <label for="startTs">Start timestamp (s)</label>
+                            </div>
+                            <div class="input-field col s12">
+                                <input id="endTs" name="endTs" type="text"/>
+                                <label for="endTs">End timestamp (s)</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox"/>
+                                <span>Warmup/cooldown filter</span>
+                            </label>
+                        </div>
+                        <div id="warmupCooldownContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="warmup" name="warmup" type="text"/>
+                                <label for="warmup">Warmup (s)</label>
+                            </div>
+                            <div class="input-field col s12">
+                                <input id="cooldown" name="cooldown" type="text"/>
+                                <label for="cooldown">Cooldown (s)</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox"/>
+                                <span>Warmup/duration filter</span>
+                            </label>
+                        </div>
+                        <div id="warmupDurationContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="wdWarmup" name="wdWarmup" type="text"/>
+                                <label for="wdWarmup">Warmup (s)</label>
+                            </div>
+                            <div class="input-field col s12">
+                                <input id="wdDuration" name="wdDuration" type="text"/>
+                                <label for="wdDuration">Duration (s)</label>
+                            </div>
+                        </div>
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="consumeCpuOn" name="consumeCpuOn" type="checkbox"/>
+                                <span>Consume CPU</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-content">
                     <div class="card-title">
@@ -223,55 +214,51 @@
                         <div class="row">
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractThreads" name="extractThreads" type="checkbox" checked/>
+                                    <input class="additional-level" id="extractThreads" name="extractThreads"
+                                           type="checkbox" checked/>
                                     <span>Add thread level</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractTs10S" name="extractTs10S" type="checkbox"/>
+                                    <input class="additional-level" id="extractTs10S" name="extractTs10S"
+                                           type="checkbox"/>
                                     <span>Add timestamp level (10 second window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractTs1S" name="extractTs1S" type="checkbox"/>
+                                    <input class="additional-level" id="extractTs1S" name="extractTs1S"
+                                           type="checkbox"/>
                                     <span>Add timestamp level (1 second window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms" type="checkbox"/>
+                                    <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms"
+                                           type="checkbox"/>
                                     <span>Add timestamp level (100 ms window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractFilename" name="extractFilename" type="checkbox"/>
+                                    <input class="additional-level" id="extractFilename" name="extractFilename"
+                                           type="checkbox"/>
                                     <span>Add filename level</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
-                                    <input class="additional-level" id="extractEcid" name="extractEcid" type="checkbox"/>
-                                    <span>Add ECID level</span>
+                                    <input class="additional-level" id="extractEcid" name="extractEcid"
+                                           type="checkbox"/>
+                                    <span>Add correlation id level</span>
                                 </label>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col s10">
-            <div class="card">
-                <div class="card-content">
-                    <iframe id="flameGraph" width="100%" height="1000px" frameBorder="0"></iframe>
-                </div>
-            </div>
-        </div>
-
-        <div class="col s12">
             <div class="card">
                 <div class="card-content">
                     Author: Krzysztof Ślusarski <br>
@@ -279,10 +266,19 @@
                 </div>
             </div>
         </div>
+
+        <div class="col s10">
+            <div class="card">
+                <div class="card-content">
+                    <iframe id="flameGraph" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
+                    <iframe id="correlationIdStats" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
+<script type="text/javascript" th:src="'/' + @{webjars/jquery/2.2.4/jquery.min.js}"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script type="text/javascript">
     $("#threadFilterOn").on("change", function () {
@@ -351,23 +347,41 @@
             $("#warmupDurationContent").hide();
         }
     });
-    function goToFlames(pressed) {
-        let url = $(pressed).data("url");
+
+    function enableFlameGraphs() {
+        $("#flameGraph").show();
+        $("#correlationIdStats").hide();
+        return false;
+    }
+
+    function enableCorrelationId() {
+        $("#flameGraph").hide();
+        $("#correlationIdStats").show();
+        return false;
+    }
+
+    function updatePages(pressed) {
+        let flameGraphUrl = $(pressed).data("url");
+        let correlationIdStats = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
         $(".additional-level:checked").each(function (index) {
-            url = url + "&" + $(this).attr("name") + "=on"
+            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalOptionsContainer").find("input:checked").each(function (index) {
-            url = url + "&" + $(this).attr("name") + "=on"
+            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input:checked").each(function (index) {
-            url = url + "&" + $(this).attr("name") + "=on"
+            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
+            correlationIdStats = correlationIdStats + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
-            url = url + "&" + $(this).attr("name") + "=" + $(this).val();
+            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            correlationIdStats = correlationIdStats + "&" + $(this).attr("name") + "=" + $(this).val();
         });
 
-        $("#flameGraph").attr("src", url);
-        console.log(url);
+        console.log(flameGraphUrl);
+        console.log(correlationIdStats);
+        $("#flameGraph").attr("src", flameGraphUrl);
+        $("#correlationIdStats").attr("src", correlationIdStats);
         return false;
     }
 </script>

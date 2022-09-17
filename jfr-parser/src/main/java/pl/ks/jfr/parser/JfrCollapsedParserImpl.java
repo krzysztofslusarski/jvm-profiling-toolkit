@@ -317,7 +317,7 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
                 if (ecid != 0) {
                     long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
                     Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
-                    jfrCollapsedParsedFile.getEcidInfo().computeIfAbsent(ecid, JfrEcidInfo::new).newWallSample(eventDate, consumesCpu);
+                    jfrCollapsedParsedFile.getEcidInfo().computeIfAbsent(ecid, JfrEcidInfo::new).newExecutionSample(eventDate, consumesCpu);
                 }
             }
 

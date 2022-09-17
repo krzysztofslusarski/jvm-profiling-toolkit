@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.JfrEcidInfo;
 import pl.ks.jfr.parser.JfrParsedAllocationEvent;
 import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
 import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
@@ -50,16 +51,34 @@ class StatefulJfrViewerService {
         return parsedFiles.get(uuid);
     }
 
+    List<JfrEcidInfo> getCorrelationIdStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        Map<Long, JfrEcidInfo> correlationIdInfo = new ConcurrentHashMap<>();
+        getFilteredExecutionSamples(config, getFile(uuid)).stream().parallel().forEach(sample -> {
+            correlationIdInfo.computeIfAbsent(sample.getCorrelationId(), JfrEcidInfo::new)
+                    .newExecutionSample(sample.getEventTime(), sample.isConsumesCpu());
+        });
+        return correlationIdInfo.values().stream()
+                .sorted(Comparator.comparing(JfrEcidInfo::timeDiff).reversed())
+                .limit(1000)
+                .toList();
+    }
+
     byte[] getExecutionSamples(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
+                config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
+    }
+
+    private List<JfrParsedExecutionSampleEvent> getFilteredExecutionSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
         List<Predicate<JfrParsedExecutionSampleEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedExecutionSampleEvent.class);
 
         Stream<JfrParsedExecutionSampleEvent> samples = jfrParsedFile.getExecutionSamples().stream();
         for (Predicate<JfrParsedExecutionSampleEvent> filter : filters) {
             samples = samples.filter(filter);
         }
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
+        List<JfrParsedExecutionSampleEvent> filteredExecutions = samples.toList();
+        return filteredExecutions;
     }
 
     byte[] getAllocationSamplesCount(UUID uuid, JfrViewerFilterAndLevelConfig config) {

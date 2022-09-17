@@ -59,7 +59,7 @@ class StatefulJfrViewerController {
         return uploadJfr(model);
     }
 
-    @GetMapping("/get-stateful-jfr")
+    @GetMapping("/stateful-jfr/single")
     String showJfr(Model model, @RequestParam("id") UUID uuid) {
         JfrParsedFile file = jfrViewerService.getFile(uuid);
         model.addAttribute("file", file);
@@ -68,26 +68,32 @@ class StatefulJfrViewerController {
     }
 
     @ResponseBody
-    @GetMapping("/get-stateful-jfr/samples/execution")
+    @GetMapping("/stateful-jfr/single/samples/execution")
     byte[] getExecutionSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getExecutionSamples(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/get-stateful-jfr/samples/allocation/count")
+    @GetMapping("/stateful-jfr/single/samples/allocation/count")
     byte[] getAllocationSamplesCount(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getAllocationSamplesCount(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/get-stateful-jfr/samples/allocation/size")
+    @GetMapping("/stateful-jfr/single/samples/allocation/size")
     byte[] getAllocationSamplesSize(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getAllocationSamplesSize(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/get-stateful-jfr/samples/lock")
+    @GetMapping("/stateful-jfr/single/samples/lock")
     byte[] getLockSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getLockSamples(uuid, createConfig(params));
+    }
+
+    @GetMapping("/stateful-jfr/single/correlation-id-stats")
+    String getCorrelationIdStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("correlationIdStats", jfrViewerService.getCorrelationIdStats(uuid, createConfig(params)));
+        return "uploaded-stateful-jfr-correlation-id-stats";
     }
 }

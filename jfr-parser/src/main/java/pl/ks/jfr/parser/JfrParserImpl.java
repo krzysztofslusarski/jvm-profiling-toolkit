@@ -155,7 +155,7 @@ class JfrParserImpl implements JfrParser {
             if (method.getFormalDescriptor().equals("(Lk;)L;")) {
                 stackTraceBuilder.append("_[k]");
             }
-            stackTrace[i] = jfrParsedFile.getCanonicalString(stackTraceBuilder.toString());
+            stackTrace[frames.size() - i - 1] = jfrParsedFile.getCanonicalString(stackTraceBuilder.toString());
         }
         return stackTrace;
     }

@@ -34,7 +34,7 @@ public class JfrEcidInfo {
         return maxDate.toEpochMilli() - minDate.toEpochMilli();
     }
 
-    synchronized void newWallSample(Instant when, boolean runnable) {
+    public synchronized void newExecutionSample(Instant when, boolean runnable) {
         if (minDate.isAfter(when)) {
             minDate = when;
         }
