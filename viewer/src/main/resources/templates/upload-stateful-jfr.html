@@ -33,7 +33,7 @@
         </div>
 
         <div class="col s12">
-            <form method="POST" enctype="multipart/form-data" action="/stateful-jfr" target="_blank">
+            <form method="POST" enctype="multipart/form-data" action="/upload-stateful-jfr" target="_blank">
                 <div class="card">
                     <div class="card-content">
                         <div class="card-title">
@@ -48,6 +48,7 @@
                                     <th>ID</th>
                                     <th>Import date</th>
                                     <th>Imported files</th>
+                                    <th>Open</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -58,6 +59,11 @@
                                         <p th:each="fileName, fileNameStatus: ${file.filenames}" th:inline="text">
                                             [[${fileName}]]
                                         </p>
+                                    </td>
+                                    <td>
+                                        <a target="_blank" th:href="'/get-stateful-jfr?id=' + ${file.id}">
+                                            Open
+                                        </a>
                                     </td>
                                 </tr>
                                 </tbody>

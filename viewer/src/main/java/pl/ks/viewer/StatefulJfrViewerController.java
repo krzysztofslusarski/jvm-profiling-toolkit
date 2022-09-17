@@ -18,6 +18,7 @@ package pl.ks.viewer;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -25,7 +26,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
 
 @Controller
@@ -34,15 +37,14 @@ class StatefulJfrViewerController {
     public static final String ON = "on";
     private final StatefulJfrViewerService jfrViewerService;
 
-    @GetMapping("/stateful-jfr")
+    @GetMapping("/upload-stateful-jfr")
     String uploadJfr(Model model) {
         model.addAttribute("files", jfrViewerService.getFiles());
-        return "stateful-jfr";
+        return "upload-stateful-jfr";
     }
 
-    @PostMapping("/stateful-jfr")
-    String upload(Model model,
-                  @RequestParam("files") MultipartFile[] files) throws Exception {
+    @PostMapping("/upload-stateful-jfr")
+    String upload(Model model, @RequestParam("files") MultipartFile[] files) throws Exception {
         List<String> savedCopies = new ArrayList<>(files.length);
         for (MultipartFile file : files) {
             String originalFilename = file.getOriginalFilename();
@@ -52,5 +54,19 @@ class StatefulJfrViewerController {
         }
         jfrViewerService.parseNewFiles(savedCopies);
         return uploadJfr(model);
+    }
+
+    @GetMapping("/get-stateful-jfr")
+    String showJfr(Model model, @RequestParam("id") UUID uuid) {
+        JfrParsedFile file = jfrViewerService.getFile(uuid);
+        model.addAttribute("file", file);
+        model.addAttribute("currentId", uuid);
+        return "uploaded-stateful-jfr";
+    }
+
+    @ResponseBody
+    @GetMapping("/get-stateful-jfr/samples/execution")
+    byte[] getExecutionSamples(@RequestParam("id") UUID uuid) {
+        return jfrViewerService.getExecutionSamples(uuid);
     }
 }

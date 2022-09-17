@@ -20,12 +20,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import pl.ks.jfr.parser.JfrCollapsedParser;
 import pl.ks.jfr.parser.JfrParser;
+import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 
 @Configuration(proxyBeanMethods = false)
 @RequiredArgsConstructor
 class ViewerConfiguration {
     private final JfrCollapsedParser jfrCollapsedParser;
     private final JfrParser jfrParser;
+    private final FlameGraphExecutor flameGraphExecutor;
 
     @Bean
     CollapsedStackPageCreator collapsedStackPageCreator() {
@@ -39,6 +41,6 @@ class ViewerConfiguration {
 
     @Bean
     StatefulJfrViewerService statefulJfrViewerService() {
-        return new StatefulJfrViewerService(jfrParser);
+        return new StatefulJfrViewerService(jfrParser, flameGraphExecutor);
     }
 }

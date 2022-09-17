@@ -8,14 +8,18 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
+import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParser;
+import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 
 @RequiredArgsConstructor
 class StatefulJfrViewerService {
     private final Map<UUID, JfrParsedFile> parsedFiles = new ConcurrentHashMap<>();
 
     private final JfrParser jfrParser;
+    private final FlameGraphExecutor flameGraphExecutor;
 
     List<StatefulJfrFile> getFiles() {
         return parsedFiles.entrySet().stream()
@@ -28,6 +32,17 @@ class StatefulJfrViewerService {
                 )
                 .toList();
     }
+
+    JfrParsedFile getFile(UUID uuid) {
+        return parsedFiles.get(uuid);
+    }
+
+    byte[] getExecutionSamples(UUID uuid) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(jfrParsedFile.getExecutionSamples(), JfrParsedExecutionSampleEvent::getStackTrace);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", false);
+    }
+
     UUID parseNewFiles(List<String> files) {
         UUID uuid = UUID.randomUUID();
         List<Path> paths = files.stream()
