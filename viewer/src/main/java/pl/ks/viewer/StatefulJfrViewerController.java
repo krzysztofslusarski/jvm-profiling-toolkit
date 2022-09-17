@@ -84,4 +84,10 @@ class StatefulJfrViewerController {
     byte[] getAllocationSamplesSize(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getAllocationSamplesSize(uuid, createConfig(params));
     }
+
+    @ResponseBody
+    @GetMapping("/get-stateful-jfr/samples/lock")
+    byte[] getLockSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getLockSamples(uuid, createConfig(params));
+    }
 }

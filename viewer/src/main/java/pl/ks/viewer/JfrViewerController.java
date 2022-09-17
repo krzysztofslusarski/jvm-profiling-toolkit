@@ -34,7 +34,6 @@ import pl.ks.viewer.io.TempFileUtils;
 @Controller
 @RequiredArgsConstructor
 class JfrViewerController {
-    public static final String ON = "on";
     private final JfrViewerService jfrViewerService;
 
     @GetMapping("/upload-jfr")

@@ -6,15 +6,21 @@ import java.util.Set;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 abstract class JfrControllerCommon {
+    public static final String ON = "on";
+
     static JfrViewerFilterAndLevelConfig createConfig(Map<String, String> params) {
-        boolean threadFilterOn = JfrViewerController.ON.equals(params.get("threadFilterOn"));
         JfrViewerFilterAndLevelConfig.JfrViewerFilterAndLevelConfigBuilder builder = JfrViewerFilterAndLevelConfig.builder();
+
+        boolean consumeCpuOn = ON.equals(params.get("consumeCpuOn"));
+        builder.consumeCpuOn(consumeCpuOn);
+
+        boolean threadFilterOn = ON.equals(params.get("threadFilterOn"));
         builder.threadFilterOn(threadFilterOn);
         if (threadFilterOn) {
             builder.threadFilter(params.get("threadFilter"));
         }
 
-        boolean endDurationOn = JfrViewerController.ON.equals(params.get("endDurationOn"));
+        boolean endDurationOn = ON.equals(params.get("endDurationOn"));
         builder.endDurationOn(endDurationOn);
         if (endDurationOn) {
             builder
@@ -23,7 +29,7 @@ abstract class JfrControllerCommon {
                     .endDateDateTimeFormat(params.get("endDateDateTimeFormat"));
         }
 
-        boolean warmupCooldownOn = JfrViewerController.ON.equals(params.get("warmupCooldownOn"));
+        boolean warmupCooldownOn = ON.equals(params.get("warmupCooldownOn"));
         builder.warmupCooldownOn(warmupCooldownOn);
         if (warmupCooldownOn) {
             builder
@@ -31,7 +37,7 @@ abstract class JfrControllerCommon {
                     .warmup(Integer.parseInt(params.get("warmup")));
         }
 
-        boolean warmupDurationOn = JfrViewerController.ON.equals(params.get("warmupDurationOn"));
+        boolean warmupDurationOn = ON.equals(params.get("warmupDurationOn"));
         builder.warmupDurationOn(warmupDurationOn);
         if (warmupDurationOn) {
             builder
@@ -39,13 +45,13 @@ abstract class JfrControllerCommon {
                     .wdWarmup(Integer.parseInt(params.get("wdWarmup")));
         }
 
-        boolean ecidFilterOn = JfrViewerController.ON.equals(params.get("ecidFilterOn"));
+        boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
         builder.ecidFilterOn(ecidFilterOn);
         if (ecidFilterOn) {
             builder.ecidFilter(Long.parseLong(params.get("ecidFilter")));
         }
 
-        boolean startEndTimestampOn = JfrViewerController.ON.equals(params.get("startEndTimestampOn"));
+        boolean startEndTimestampOn = ON.equals(params.get("startEndTimestampOn"));
         builder.startEndTimestampOn(startEndTimestampOn);
         if (startEndTimestampOn) {
             builder.startTs(Long.parseLong(params.get("startTs")));
@@ -53,22 +59,22 @@ abstract class JfrControllerCommon {
         }
 
         Set<AdditionalLevel> additionalLevels = new HashSet<>();
-        if (JfrViewerController.ON.equals(params.get("extractThreads"))) {
+        if (ON.equals(params.get("extractThreads"))) {
             additionalLevels.add(AdditionalLevel.THREAD);
         }
-        if (JfrViewerController.ON.equals(params.get("extractTs10S"))) {
+        if (ON.equals(params.get("extractTs10S"))) {
             additionalLevels.add(AdditionalLevel.TIMESTAMP_10_S);
         }
-        if (JfrViewerController.ON.equals(params.get("extractTs1S"))) {
+        if (ON.equals(params.get("extractTs1S"))) {
             additionalLevels.add(AdditionalLevel.TIMESTAMP_1_S);
         }
-        if (JfrViewerController.ON.equals(params.get("extractTs100Ms"))) {
+        if (ON.equals(params.get("extractTs100Ms"))) {
             additionalLevels.add(AdditionalLevel.TIMESTAMP_100_MS);
         }
-        if (JfrViewerController.ON.equals(params.get("extractFilename"))) {
+        if (ON.equals(params.get("extractFilename"))) {
             additionalLevels.add(AdditionalLevel.FILENAME);
         }
-        if (JfrViewerController.ON.equals(params.get("extractEcid"))) {
+        if (ON.equals(params.get("extractEcid"))) {
             additionalLevels.add(AdditionalLevel.ECID);
         }
         builder.additionalLevels(additionalLevels);
