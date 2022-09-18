@@ -8,7 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +23,7 @@ import pl.ks.jfr.parser.JfrEcidInfo;
 import pl.ks.jfr.parser.JfrParsedAllocationEvent;
 import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
 import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
+import pl.ks.jfr.parser.JfrParsedEventWithTime;
 import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParsedLockEvent;
@@ -53,7 +54,7 @@ class StatefulJfrViewerService {
         return parsedFiles.get(uuid);
     }
 
-    Map<Long, JfrParsedCpuUsageEvent[]> getCpuStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    StatefulJfrHighChartCpuStats getCpuStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         List<Predicate<JfrParsedCpuUsageEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedCpuUsageEvent.class);
 
@@ -62,18 +63,15 @@ class StatefulJfrViewerService {
             samples = samples.filter(filter);
         }
         List<JfrParsedCpuUsageEvent> cpuUsageEvents = samples.sorted(Comparator.comparing(JfrParsedCpuUsageEvent::getEventTime)).toList();
+        Map<String, List<JfrParsedCpuUsageEvent>> cpuUsageEventsPerFile = new HashMap<>();
+        for (JfrParsedCpuUsageEvent event : cpuUsageEvents) {
+            cpuUsageEventsPerFile.computeIfAbsent(event.getFilename(), name -> new ArrayList<>()).add(event);
+        }
 
-        Map<String, Integer> fileIndexMap = new LinkedHashMap<>();
-        int i = 0;
-        for (String filename : jfrParsedFile.getFilenames()) {
-            fileIndexMap.put(filename, i++);
-        }
-        Map<Long, JfrParsedCpuUsageEvent[]> usageMap = new LinkedHashMap<>();
-        for (JfrParsedCpuUsageEvent cpuUsageEvent : cpuUsageEvents) {
-            JfrParsedCpuUsageEvent[] usages = usageMap.computeIfAbsent(cpuUsageEvent.getEventTime().getEpochSecond(), time -> new JfrParsedCpuUsageEvent[fileIndexMap.size()]);
-            usages[fileIndexMap.get(cpuUsageEvent.getFilename())] = cpuUsageEvent;
-        }
-        return usageMap;
+        return StatefulJfrHighChartCpuStats.builder()
+                .filenames(jfrParsedFile.getFilenames())
+                .cpuUsageEventsPerFile(cpuUsageEventsPerFile)
+                .build();
     }
 
     List<JfrEcidInfo> getCorrelationIdStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
@@ -172,34 +170,33 @@ class StatefulJfrViewerService {
             }
         }
 
-        if (JfrParsedCommonStackTraceEvent.class.isAssignableFrom(clazz) ||
-                JfrParsedCpuUsageEvent.class.isAssignableFrom(clazz)) {
+        if (JfrParsedEventWithTime.class.isAssignableFrom(clazz)) {
             if (config.isEndDurationOn()) {
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat());
                 Date parsedDate = simpleDateFormat.parse(config.getEndDate());
                 Instant endDate = parsedDate.toInstant();
                 Instant startDate = endDate.minus(config.getDuration(), ChronoUnit.MILLIS);
                 filters.add(t -> {
-                    JfrParsedCommonStackTraceEvent event = (JfrParsedCommonStackTraceEvent) t;
+                    JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     return !(event.getEventTime().isBefore(startDate) || event.getEventTime().isAfter(endDate));
                 });
             } else if (config.isWarmupCooldownOn()) {
                 Instant startDate = jfrParsedFile.getMinEventDate().plus(config.getWarmup(), ChronoUnit.SECONDS);
                 Instant endDate = jfrParsedFile.getMaxEventDate().minus(config.getCooldown(), ChronoUnit.SECONDS);
                 filters.add(t -> {
-                    JfrParsedCommonStackTraceEvent event = (JfrParsedCommonStackTraceEvent) t;
+                    JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     return !(event.getEventTime().isBefore(startDate) || event.getEventTime().isAfter(endDate));
                 });
             } else if (config.isWarmupDurationOn()) {
                 Instant startDate = jfrParsedFile.getMinEventDate().plus(config.getWdWarmup(), ChronoUnit.SECONDS);
                 Instant endDate = startDate.plus(config.getWdDuration(), ChronoUnit.SECONDS);
                 filters.add(t -> {
-                    JfrParsedCommonStackTraceEvent event = (JfrParsedCommonStackTraceEvent) t;
+                    JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     return !(event.getEventTime().isBefore(startDate) || event.getEventTime().isAfter(endDate));
                 });
             } else if (config.isStartEndTimestampOn()) {
                 filters.add(t -> {
-                    JfrParsedCommonStackTraceEvent event = (JfrParsedCommonStackTraceEvent) t;
+                    JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     long startTs = config.getStartTs() * 1000;
                     long endTs = (config.getEndTs() * 1000) + 999;
                     return !(event.getEventTime().toEpochMilli() < startTs || event.getEventTime().toEpochMilli() > endTs);

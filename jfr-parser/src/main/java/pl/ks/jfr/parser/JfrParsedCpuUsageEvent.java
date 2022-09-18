@@ -22,7 +22,7 @@ import lombok.Value;
 
 @Value
 @Builder
-public class JfrParsedCpuUsageEvent {
+public class JfrParsedCpuUsageEvent implements JfrParsedEventWithTime {
     BigDecimal jvmUser;
     BigDecimal jvmSystem;
     BigDecimal machineTotal;
@@ -31,5 +31,9 @@ public class JfrParsedCpuUsageEvent {
 
     public BigDecimal getJvmTotal() {
         return jvmUser.add(jvmSystem);
+    }
+
+    public BigDecimal getNotJvmTotal() {
+        return machineTotal.subtract(getJvmTotal());
     }
 }

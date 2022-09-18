@@ -25,15 +25,279 @@
 </head>
 
 <body>
+<script type="text/javascript" th:src="'/' + @{webjars/jquery/2.2.4/jquery.min.js}"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.src.js"></script>
+<script src="https://code.highcharts.com/modules/boost.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/themes/grid.src.js"></script>
+<script type="text/javascript">
+
+    let commonHighChartsPieChartsOptions = {
+        title: {
+            text: ''
+        },
+
+        chart: {
+            height: $(window).height() * 0.9,
+            width: $(window).width() * 0.8,
+            plotBackgroundColor: null,
+            plotBorderWidth: null,
+            plotShadow: false,
+            type: 'pie'
+        },
+
+        pie: {
+            dataLabels: {
+                enabled: true,
+                format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+            }
+        },
+
+        tooltip: {
+            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>',
+        },
+
+        accessibility: {
+            point: {
+                valueSuffix: '%'
+            }
+        },
+
+        legend: {
+            align: 'left',
+            verticalAlign: 'top',
+            borderWidth: 0,
+            style: {
+                fontSize: 15,
+            },
+        },
+    }
+
+    function commonHighChartsLineChartsOptions(xAxisLabel, yAxisLabel) {
+        return {
+            title: {
+                text: '',
+            },
+
+            chart: {
+                height: $(window).height() * 0.9,
+                width: $(window).width() * 0.9,
+                zoomType: 'x'
+            },
+
+            tooltip: {
+                pointFormat: '{series.name}: <b>{point.y}</b><br/>',
+            },
+
+            legend: {
+                align: 'left',
+                verticalAlign: 'top',
+                borderWidth: 0,
+            },
+
+            plotOptions: {
+                series: {
+                    label: {
+                        connectorAllowed: false
+                    },
+                },
+                scatter: {
+                    marker: {
+                        radius: 2,
+                    },
+                },
+            },
+
+            xAxis: {
+                title: {
+                    text: xAxisLabel,
+                },
+            },
+
+            yAxis: {
+                title: {
+                    text: yAxisLabel,
+                },
+                min: 0,
+                max: 1
+            }
+        }
+    }
+</script>
+
+
 <div>
     <div class="row">
         <div class="col s12">
             <div class="card">
                 <div class="card-content" th:inline="text">
                     <span class="card-title">
-                        CPU statistics
+                        CPU statistics - machine total
                     </span>
-                    [[${cpuStats}]]
+
+                    <div class="row">
+                        <figure class="highcharts-figure">
+                            <div id="container-machine-total">
+                            </div>
+                        </figure>
+
+                        <script type="text/javascript" th:inline="javascript">
+                            var common = {...commonHighChartsLineChartsOptions("Time", "CPU usage")};
+                            Highcharts.chart('container-machine-total' , {
+                                ...common,
+                                chart: {
+                                    ...common.chart,
+                                    type: 'line',
+                                },
+
+                                xAxis: {
+                                    ...common.xAxis,
+                                },
+                                series: /*[[${cpuStats.generateMachineTotalHighChart()}]]*/,
+                            });
+                        </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content" th:inline="text">
+                    <span class="card-title">
+                        CPU statistics - JVM total
+                    </span>
+
+                    <div class="row">
+                        <figure class="highcharts-figure">
+                            <div id="container-jvm-total">
+                            </div>
+                        </figure>
+
+                        <script type="text/javascript" th:inline="javascript">
+                            var common = {...commonHighChartsLineChartsOptions("Time", "CPU usage")};
+                            Highcharts.chart('container-jvm-total' , {
+                                ...common,
+                                chart: {
+                                    ...common.chart,
+                                    type: 'line',
+                                },
+
+                                xAxis: {
+                                    ...common.xAxis,
+                                },
+                                series: /*[[${cpuStats.generateJvmTotalHighChart()}]]*/,
+                            });
+                        </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content" th:inline="text">
+                    <span class="card-title">
+                        CPU statistics - not JVM total
+                    </span>
+
+                    <div class="row">
+                        <figure class="highcharts-figure">
+                            <div id="container-not-jvm-total">
+                            </div>
+                        </figure>
+
+                        <script type="text/javascript" th:inline="javascript">
+                            var common = {...commonHighChartsLineChartsOptions("Time", "CPU usage")};
+                            Highcharts.chart('container-not-jvm-total' , {
+                                ...common,
+                                chart: {
+                                    ...common.chart,
+                                    type: 'line',
+                                },
+
+                                xAxis: {
+                                    ...common.xAxis,
+                                },
+                                series: /*[[${cpuStats.generateNotJvmTotalHighChart()}]]*/,
+                            });
+                        </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content" th:inline="text">
+                    <span class="card-title">
+                        CPU statistics - JVM user
+                    </span>
+
+                    <div class="row">
+                        <figure class="highcharts-figure">
+                            <div id="container-jvm-user">
+                            </div>
+                        </figure>
+
+                        <script type="text/javascript" th:inline="javascript">
+                            var common = {...commonHighChartsLineChartsOptions("Time", "CPU usage")};
+                            Highcharts.chart('container-jvm-user' , {
+                                ...common,
+                                chart: {
+                                    ...common.chart,
+                                    type: 'line',
+                                },
+
+                                xAxis: {
+                                    ...common.xAxis,
+                                },
+                                series: /*[[${cpuStats.generateJvmUserHighChart()}]]*/,
+                            });
+                        </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content" th:inline="text">
+                    <span class="card-title">
+                        CPU statistics - JVM system
+                    </span>
+
+                    <div class="row">
+                        <figure class="highcharts-figure">
+                            <div id="container-jvm-system">
+                            </div>
+                        </figure>
+
+                        <script type="text/javascript" th:inline="javascript">
+                            var common = {...commonHighChartsLineChartsOptions("Time", "CPU usage")};
+                            Highcharts.chart('container-jvm-system' , {
+                                ...common,
+                                chart: {
+                                    ...common.chart,
+                                    type: 'line',
+                                },
+
+                                xAxis: {
+                                    ...common.xAxis,
+                                },
+                                series: /*[[${cpuStats.generateJvmSystemHighChart()}]]*/,
+                            });
+                        </script>
+                    </div>
                 </div>
             </div>
         </div>

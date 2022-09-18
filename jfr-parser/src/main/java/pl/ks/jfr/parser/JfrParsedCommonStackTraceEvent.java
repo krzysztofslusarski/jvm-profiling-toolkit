@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Set;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
-public interface JfrParsedCommonStackTraceEvent {
+public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
     ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
 

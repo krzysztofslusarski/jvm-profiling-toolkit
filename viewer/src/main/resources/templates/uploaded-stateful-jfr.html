@@ -282,10 +282,6 @@
 
 <script type="text/javascript" th:src="'/' + @{webjars/jquery/2.2.4/jquery.min.js}"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-<script src="https://code.highcharts.com/highcharts.src.js"></script>
-<script src="https://code.highcharts.com/modules/boost.js"></script>
-<script src="https://code.highcharts.com/modules/exporting.js"></script>
-<script src="https://code.highcharts.com/themes/grid.src.js"></script>
 <script type="text/javascript">
     $("#threadFilterOn").on("change", function () {
         if ($(this).prop('checked')) {
@@ -408,9 +404,9 @@
     }
 
     function updatePages(pressed) {
+        updateNotEventDependentPages();
         let flameGraphUrl = $(pressed).data("url");
         let correlationIdStatsUrl = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
-        let cpuStatsUrl = "/stateful-jfr/single/cpu-stats?id=" + $(pressed).data("current");
         $(".additional-level:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
         });
@@ -420,18 +416,15 @@
         $("#additionalFiltersContainer").find("input:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
             correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=on"
-            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + $(this).val();
             correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
         });
 
         let externalContent = $("#externalContent");
         externalContent.data("flameGraphUrl", flameGraphUrl);
         externalContent.data("correlationIdStatsUrl", correlationIdStatsUrl);
-        externalContent.data("cpuStatsUrl", cpuStatsUrl);
         updateExternalContent();
         return false;
     }
