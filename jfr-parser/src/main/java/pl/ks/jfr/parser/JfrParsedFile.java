@@ -34,6 +34,7 @@ public class JfrParsedFile {
     private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
     private final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
     private final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
+    private final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
     private final List<String> filenames = new ArrayList<>();
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
 
@@ -43,6 +44,12 @@ public class JfrParsedFile {
 
     void addFilename(String filename) {
         filenames.add(filename);
+    }
+
+    void addCpuUsageEvent(JfrParsedCpuUsageEvent event) {
+        synchronized (cpuUsageSamples) {
+            cpuUsageSamples.add(event);
+        }
     }
 
     void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
@@ -103,6 +110,10 @@ public class JfrParsedFile {
 
     public List<JfrParsedLockEvent> getLockSamples() {
         return lockSamples;
+    }
+
+    public List<JfrParsedCpuUsageEvent> getCpuUsageSamples() {
+        return cpuUsageSamples;
     }
 
     public Instant getParseStartDate() {

@@ -24,7 +24,7 @@
     <link href="/css/upload-materialized.css" rel="stylesheet">
 </head>
 
-<body>
+<body th:data-current="${currentId}">
 
 <div>
     <div class="row">
@@ -38,7 +38,10 @@
                         <a target="_blank" href="#" onclick="return enableFlameGraphs()">Flame graphs</a>
                     </p>
                     <p class="row">
-                        <a target="_blank" href="#" onclick="return enableCorrelationId()">Correlation id stats</a>
+                        <a target="_blank" href="#" onclick="return enableCorrelationId()">Correlation ID stats</a>
+                    </p>
+                    <p class="row">
+                        <a target="_blank" href="#" onclick="return enableCpu()">CPU stats</a>
                     </p>
                 </div>
             </div>
@@ -270,8 +273,7 @@
         <div class="col s10">
             <div class="card">
                 <div class="card-content">
-                    <iframe id="flameGraph" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
-                    <iframe id="correlationIdStats" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
+                    <iframe id="externalContent" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
                 </div>
             </div>
         </div>
@@ -280,6 +282,10 @@
 
 <script type="text/javascript" th:src="'/' + @{webjars/jquery/2.2.4/jquery.min.js}"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.src.js"></script>
+<script src="https://code.highcharts.com/modules/boost.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/themes/grid.src.js"></script>
 <script type="text/javascript">
     $("#threadFilterOn").on("change", function () {
         if ($(this).prop('checked')) {
@@ -349,20 +355,62 @@
     });
 
     function enableFlameGraphs() {
-        $("#flameGraph").show();
-        $("#correlationIdStats").hide();
+        let externalContent = $("#externalContent");
+        externalContent.show();
+        externalContent.data("toShow", "flameGraphUrl");
+        updateExternalContent();
         return false;
     }
 
     function enableCorrelationId() {
-        $("#flameGraph").hide();
-        $("#correlationIdStats").show();
+        let externalContent = $("#externalContent");
+        externalContent.show();
+        externalContent.data("toShow", "correlationIdStatsUrl");
+        updateExternalContent();
+        return false;
+    }
+
+    function enableCpu() {
+        let externalContent = $("#externalContent");
+        externalContent.show();
+        externalContent.data("toShow", "cpuStatsUrl");
+        updateNotEventDependentPages();
+        updateExternalContent();
+        return false;
+    }
+
+    function updateExternalContent() {
+        let externalContent = $("#externalContent");
+        let toShow = externalContent.data("toShow");
+        console.log(toShow);
+        if (toShow !== undefined) {
+            let newSrc = externalContent.data(toShow);
+            console.log(newSrc);
+            if (newSrc !== undefined) {
+                externalContent.attr("src", newSrc);
+            }
+        }
+    }
+
+    function updateNotEventDependentPages() {
+        let cpuStatsUrl = "/stateful-jfr/single/cpu-stats?id=" + $("body").data("current");
+        $("#additionalFiltersContainer").find("input:checked").each(function (index) {
+            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=on"
+        });
+        $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
+            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+        });
+
+        let externalContent = $("#externalContent");
+        externalContent.data("cpuStatsUrl", cpuStatsUrl);
+        updateExternalContent();
         return false;
     }
 
     function updatePages(pressed) {
         let flameGraphUrl = $(pressed).data("url");
-        let correlationIdStats = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
+        let correlationIdStatsUrl = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
+        let cpuStatsUrl = "/stateful-jfr/single/cpu-stats?id=" + $(pressed).data("current");
         $(".additional-level:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
         });
@@ -371,17 +419,20 @@
         });
         $("#additionalFiltersContainer").find("input:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
-            correlationIdStats = correlationIdStats + "&" + $(this).attr("name") + "=on"
+            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=on"
+            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            correlationIdStats = correlationIdStats + "&" + $(this).attr("name") + "=" + $(this).val();
+            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
         });
 
-        console.log(flameGraphUrl);
-        console.log(correlationIdStats);
-        $("#flameGraph").attr("src", flameGraphUrl);
-        $("#correlationIdStats").attr("src", correlationIdStats);
+        let externalContent = $("#externalContent");
+        externalContent.data("flameGraphUrl", flameGraphUrl);
+        externalContent.data("correlationIdStatsUrl", correlationIdStatsUrl);
+        externalContent.data("cpuStatsUrl", cpuStatsUrl);
+        updateExternalContent();
         return false;
     }
 </script>

@@ -8,6 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +22,7 @@ import pl.ks.collapsed.CollapsedStack;
 import pl.ks.jfr.parser.JfrEcidInfo;
 import pl.ks.jfr.parser.JfrParsedAllocationEvent;
 import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
+import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
 import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParsedLockEvent;
@@ -49,6 +51,29 @@ class StatefulJfrViewerService {
 
     JfrParsedFile getFile(UUID uuid) {
         return parsedFiles.get(uuid);
+    }
+
+    Map<Long, JfrParsedCpuUsageEvent[]> getCpuStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        List<Predicate<JfrParsedCpuUsageEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedCpuUsageEvent.class);
+
+        Stream<JfrParsedCpuUsageEvent> samples = jfrParsedFile.getCpuUsageSamples().stream();
+        for (Predicate<JfrParsedCpuUsageEvent> filter : filters) {
+            samples = samples.filter(filter);
+        }
+        List<JfrParsedCpuUsageEvent> cpuUsageEvents = samples.sorted(Comparator.comparing(JfrParsedCpuUsageEvent::getEventTime)).toList();
+
+        Map<String, Integer> fileIndexMap = new LinkedHashMap<>();
+        int i = 0;
+        for (String filename : jfrParsedFile.getFilenames()) {
+            fileIndexMap.put(filename, i++);
+        }
+        Map<Long, JfrParsedCpuUsageEvent[]> usageMap = new LinkedHashMap<>();
+        for (JfrParsedCpuUsageEvent cpuUsageEvent : cpuUsageEvents) {
+            JfrParsedCpuUsageEvent[] usages = usageMap.computeIfAbsent(cpuUsageEvent.getEventTime().getEpochSecond(), time -> new JfrParsedCpuUsageEvent[fileIndexMap.size()]);
+            usages[fileIndexMap.get(cpuUsageEvent.getFilename())] = cpuUsageEvent;
+        }
+        return usageMap;
     }
 
     List<JfrEcidInfo> getCorrelationIdStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
@@ -145,6 +170,10 @@ class StatefulJfrViewerService {
             if (config.isEcidFilterOn()) {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getCorrelationId() == config.getEcidFilter());
             }
+        }
+
+        if (JfrParsedCommonStackTraceEvent.class.isAssignableFrom(clazz) ||
+                JfrParsedCpuUsageEvent.class.isAssignableFrom(clazz)) {
             if (config.isEndDurationOn()) {
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat());
                 Date parsedDate = simpleDateFormat.parse(config.getEndDate());
@@ -175,7 +204,6 @@ class StatefulJfrViewerService {
                     long endTs = (config.getEndTs() * 1000) + 999;
                     return !(event.getEventTime().toEpochMilli() < startTs || event.getEventTime().toEpochMilli() > endTs);
                 });
-
             }
         }
 

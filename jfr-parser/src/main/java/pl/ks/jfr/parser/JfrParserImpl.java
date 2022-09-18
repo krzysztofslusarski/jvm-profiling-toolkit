@@ -2,11 +2,14 @@ package pl.ks.jfr.parser;
 
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
 import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Date;
@@ -14,6 +17,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.flightrecorder.JfrAttributes;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
 import org.openjdk.jmc.flightrecorder.internal.EventArrays;
@@ -52,12 +56,37 @@ class JfrParserImpl implements JfrParser {
                     processAllocEvent(jfrParsedFile, eventArray, filename, false);
                 } else if (isAsyncAllocOutsideTLABEvent(eventArray)) {
                     processAllocEvent(jfrParsedFile, eventArray, filename, true);
+                } else if (isCpuLoadEvent(eventArray)) {
+                    processCpuEvent(jfrParsedFile, eventArray, filename);
                 }
             }
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private static void processCpuEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {
+        JfrAccessors accessors = JfrAccessors.builder()
+                .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
+                .jvmSystemAccessor(JfrParserHelper.findCpuJvmSystemAccessor(eventArray))
+                .jvmUserAccessor(JfrParserHelper.findCpuJvmUserAccessor(eventArray))
+                .machineTotalAccessor(JfrParserHelper.findMachineTotalAccessor(eventArray))
+                .build();
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
+            ITypedQuantity jvmUser = accessors.getJvmUserAccessor().getMember(event);
+            ITypedQuantity jvmSystem = accessors.getJvmSystemAccessor().getMember(event);
+            ITypedQuantity machineTotal = accessors.getMachineTotalAccessor().getMember(event);
+
+            jfrParsedFile.addCpuUsageEvent(JfrParsedCpuUsageEvent.builder()
+                    .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
+                    .filename(filename)
+                    .machineTotal(BigDecimal.valueOf(machineTotal.doubleValue()).setScale(2, RoundingMode.HALF_EVEN))
+                    .jvmUser(BigDecimal.valueOf(jvmUser.doubleValue()).setScale(2, RoundingMode.HALF_EVEN))
+                    .jvmSystem(BigDecimal.valueOf(jvmSystem.doubleValue()).setScale(2, RoundingMode.HALF_EVEN))
+                    .build());
+        });
+
     }
 
     private static void processLockEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {

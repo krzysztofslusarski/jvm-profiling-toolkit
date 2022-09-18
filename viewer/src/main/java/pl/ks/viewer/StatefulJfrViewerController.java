@@ -96,4 +96,10 @@ class StatefulJfrViewerController {
         model.addAttribute("correlationIdStats", jfrViewerService.getCorrelationIdStats(uuid, createConfig(params)));
         return "uploaded-stateful-jfr-correlation-id-stats";
     }
+
+    @GetMapping("/stateful-jfr/single/cpu-stats")
+    String getCpuStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("cpuStats", jfrViewerService.getCpuStats(uuid, createConfig(params)));
+        return "uploaded-stateful-jfr-cpu-stats";
+    }
 }

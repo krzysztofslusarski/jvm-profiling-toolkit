@@ -29,29 +29,11 @@
     <div class="row">
         <div class="col s12">
             <div class="card">
-                <div class="card-content">
+                <div class="card-content" th:inline="text">
                     <span class="card-title">
-                        Correlation ID info - 1000 longest entries
+                        CPU statistics
                     </span>
-
-                    <table class="table table-striped table-bordered table-sm big-font">
-                        <thead>
-                        <tr>
-                            <th>Correlation ID</th>
-                            <th>Time spent</th>
-                            <th>Wall samples</th>
-                            <th>CPU samples</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr th:each="row, rowStatus: ${correlationIdStats}">
-                            <td th:inline="text">[[${row.getEcid()}]]</td>
-                            <td th:inline="text">[[${row.timeDiff()}]]</td>
-                            <td th:inline="text">[[${row.getWallSamples()}]]</td>
-                            <td th:inline="text">[[${row.getCpuSamples()}]]</td>
-                        </tr>
-                        </tbody>
-                    </table>
+                    [[${cpuStats}]]
                 </div>
             </div>
         </div>
