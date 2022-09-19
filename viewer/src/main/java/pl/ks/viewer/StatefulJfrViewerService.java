@@ -1,5 +1,20 @@
 package pl.ks.viewer;
 
+import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.JfrEcidInfo;
+import pl.ks.jfr.parser.JfrParsedAllocationEvent;
+import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
+import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
+import pl.ks.jfr.parser.JfrParsedEventWithTime;
+import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
+import pl.ks.jfr.parser.JfrParsedFile;
+import pl.ks.jfr.parser.JfrParsedLockEvent;
+import pl.ks.jfr.parser.JfrParser;
+import pl.ks.viewer.flamegraph.FlameGraphExecutor;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -15,20 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import pl.ks.collapsed.CollapsedStack;
-import pl.ks.jfr.parser.JfrEcidInfo;
-import pl.ks.jfr.parser.JfrParsedAllocationEvent;
-import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
-import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
-import pl.ks.jfr.parser.JfrParsedEventWithTime;
-import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
-import pl.ks.jfr.parser.JfrParsedFile;
-import pl.ks.jfr.parser.JfrParsedLockEvent;
-import pl.ks.jfr.parser.JfrParser;
-import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -48,6 +49,10 @@ class StatefulJfrViewerService {
                         .build()
                 )
                 .toList();
+    }
+
+    void remove(UUID uuid) {
+        parsedFiles.remove(uuid);
     }
 
     JfrParsedFile getFile(UUID uuid) {
