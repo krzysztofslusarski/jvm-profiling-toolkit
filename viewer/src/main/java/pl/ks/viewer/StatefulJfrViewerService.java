@@ -1,5 +1,22 @@
 package pl.ks.viewer;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -14,22 +31,6 @@ import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.jfr.parser.JfrParsedLockEvent;
 import pl.ks.jfr.parser.JfrParser;
 import pl.ks.viewer.flamegraph.FlameGraphExecutor;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -91,11 +92,16 @@ class StatefulJfrViewerService {
                 .toList();
     }
 
-    byte[] getExecutionSamples(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getExecutionSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
+    }
+
+    SelfAndTotalTimeStats getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        return generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile));
     }
 
     private List<JfrParsedExecutionSampleEvent> getFilteredExecutionSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -105,11 +111,10 @@ class StatefulJfrViewerService {
         for (Predicate<JfrParsedExecutionSampleEvent> filter : filters) {
             samples = samples.filter(filter);
         }
-        List<JfrParsedExecutionSampleEvent> filteredExecutions = samples.toList();
-        return filteredExecutions;
+        return samples.toList();
     }
 
-    byte[] getAllocationSamplesCount(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getAllocationSamplesCountFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         List<Predicate<JfrParsedAllocationEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedAllocationEvent.class);
 
@@ -121,7 +126,7 @@ class StatefulJfrViewerService {
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", config.isReverseOn());
     }
 
-    byte[] getAllocationSamplesSize(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getAllocationSamplesSizeFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         List<Predicate<JfrParsedAllocationEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedAllocationEvent.class);
 
@@ -133,7 +138,7 @@ class StatefulJfrViewerService {
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", config.isReverseOn());
     }
 
-    byte[] getLockSamples(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getLockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         List<Predicate<JfrParsedLockEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedLockEvent.class);
 
@@ -154,6 +159,24 @@ class StatefulJfrViewerService {
         JfrParsedFile parsedFile = jfrParser.parse(paths);
         parsedFiles.put(uuid, parsedFile);
         return uuid;
+    }
+
+    private SelfAndTotalTimeStats generateTimeStats(List<? extends JfrParsedCommonStackTraceEvent> events) {
+        SelfAndTotalTimeStats selfAndTotalTimeStats = new SelfAndTotalTimeStats();
+        events.stream().parallel()
+                .forEach(event -> {
+                    String[] stackTrace = event.getStackTrace();
+                    Set<String> visited = new HashSet<>();
+                    selfAndTotalTimeStats.newStackTrace();
+                    for (int i = stackTrace.length - 1; i >= 0; i--) {
+                        if (visited.contains(stackTrace[i])) {
+                            continue;
+                        }
+                        visited.add(stackTrace[i]);
+                        selfAndTotalTimeStats.methodSample(stackTrace[i], i == stackTrace.length - 1);
+                    }
+                });
+        return selfAndTotalTimeStats;
     }
 
     @SneakyThrows

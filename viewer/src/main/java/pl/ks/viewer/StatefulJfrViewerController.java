@@ -15,6 +15,13 @@
  */
 package pl.ks.viewer;
 
+import static pl.ks.viewer.JfrControllerCommon.createConfig;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -26,14 +33,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static pl.ks.viewer.JfrControllerCommon.createConfig;
 
 @Controller
 @RequiredArgsConstructor
@@ -76,26 +75,26 @@ class StatefulJfrViewerController {
 
     @ResponseBody
     @GetMapping("/stateful-jfr/single/samples/execution")
-    byte[] getExecutionSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getExecutionSamples(uuid, createConfig(params));
+    byte[] getExecutionSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getExecutionSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
     @GetMapping("/stateful-jfr/single/samples/allocation/count")
-    byte[] getAllocationSamplesCount(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getAllocationSamplesCount(uuid, createConfig(params));
+    byte[] getAllocationSamplesCountFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getAllocationSamplesCountFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
     @GetMapping("/stateful-jfr/single/samples/allocation/size")
-    byte[] getAllocationSamplesSize(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getAllocationSamplesSize(uuid, createConfig(params));
+    byte[] getAllocationSamplesSizeFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getAllocationSamplesSizeFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
     @GetMapping("/stateful-jfr/single/samples/lock")
-    byte[] getLockSamples(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getLockSamples(uuid, createConfig(params));
+    byte[] getLockSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getLockSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @GetMapping("/stateful-jfr/single/correlation-id-stats")
