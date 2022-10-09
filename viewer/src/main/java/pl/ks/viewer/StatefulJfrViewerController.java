@@ -15,13 +15,6 @@
  */
 package pl.ks.viewer;
 
-import static pl.ks.viewer.JfrControllerCommon.createConfig;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -33,6 +26,15 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static pl.ks.viewer.JfrControllerCommon.createConfig;
+import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
 
 @Controller
 @RequiredArgsConstructor
@@ -107,5 +109,11 @@ class StatefulJfrViewerController {
     String getCpuStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         model.addAttribute("cpuStats", jfrViewerService.getCpuStats(uuid, createConfig(params)));
         return "uploaded-stateful-jfr-cpu-stats";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/total/execution")
+    String getExecutionTotalTimeTable(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getExecutionSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
     }
 }
