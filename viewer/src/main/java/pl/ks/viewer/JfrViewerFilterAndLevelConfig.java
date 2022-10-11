@@ -15,10 +15,11 @@
  */
 package pl.ks.viewer;
 
-import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
+
+import java.util.Set;
 
 @Value
 @Builder
@@ -43,4 +44,5 @@ public class JfrViewerFilterAndLevelConfig {
     boolean consumeCpuOn;
     boolean reverseOn;
     Set<AdditionalLevel> additionalLevels;
+    int tableLimit;
 }

@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static pl.ks.viewer.JfrControllerCommon.createConfig;
+import static pl.ks.viewer.TimeTable.Type.SELF_TIME;
 import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
 
 @Controller
@@ -76,25 +77,25 @@ class StatefulJfrViewerController {
     }
 
     @ResponseBody
-    @GetMapping("/stateful-jfr/single/samples/execution")
+    @GetMapping("/stateful-jfr/single/flames/execution")
     byte[] getExecutionSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getExecutionSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/stateful-jfr/single/samples/allocation/count")
+    @GetMapping("/stateful-jfr/single/flames/allocation/count")
     byte[] getAllocationSamplesCountFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getAllocationSamplesCountFlameGraph(uuid, createConfig(params));
+        return jfrViewerService.getAllocationCountSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/stateful-jfr/single/samples/allocation/size")
+    @GetMapping("/stateful-jfr/single/flames/allocation/size")
     byte[] getAllocationSamplesSizeFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getAllocationSamplesSizeFlameGraph(uuid, createConfig(params));
+        return jfrViewerService.getAllocationSizeSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @ResponseBody
-    @GetMapping("/stateful-jfr/single/samples/lock")
+    @GetMapping("/stateful-jfr/single/flames/lock")
     byte[] getLockSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getLockSamplesFlameGraph(uuid, createConfig(params));
     }
@@ -116,4 +117,47 @@ class StatefulJfrViewerController {
         model.addAttribute("table", jfrViewerService.getExecutionSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
         return "uploaded-stateful-total-time-table";
     }
+
+    @GetMapping("/stateful-jfr/single/table/total/allocation/count")
+    String getAllocationCountTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getAllocationCountSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/total/allocation/size")
+    String getAllocationSizeTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getAllocationSizeSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/total/lock")
+    String getLockTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/self/execution")
+    String getExecutionSelfTimeTable(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getExecutionSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/self/allocation/count")
+    String getAllocationCountSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getAllocationCountSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/self/allocation/size")
+    String getAllocationSizeSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getAllocationSizeSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/self/lock")
+    String getLockSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
+
 }

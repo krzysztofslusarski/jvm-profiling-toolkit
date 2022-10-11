@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -102,7 +103,7 @@ class StatefulJfrViewerService {
 
     TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, 10_000);
+        return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, config.getTableLimit());
     }
 
     private List<JfrParsedExecutionSampleEvent> getFilteredExecutionSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -115,40 +116,58 @@ class StatefulJfrViewerService {
         return samples.toList();
     }
 
-    byte[] getAllocationSamplesCountFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getAllocationCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        List<Predicate<JfrParsedAllocationEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedAllocationEvent.class);
-
-        Stream<JfrParsedAllocationEvent> samples = jfrParsedFile.getAllocationSamples().stream();
-        for (Predicate<JfrParsedAllocationEvent> filter : filters) {
-            samples = samples.filter(filter);
-        }
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", config.isReverseOn());
     }
 
-    byte[] getAllocationSamplesSizeFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    byte[] getAllocationSizeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", config.isReverseOn());
+    }
+
+    TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile)), type, config.getTableLimit());
+    }
+
+    TimeTable getAllocationSizeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize), type, config.getTableLimit());
+    }
+
+    private List<JfrParsedAllocationEvent> getFilteredAllocationSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
         List<Predicate<JfrParsedAllocationEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedAllocationEvent.class);
 
         Stream<JfrParsedAllocationEvent> samples = jfrParsedFile.getAllocationSamples().stream();
         for (Predicate<JfrParsedAllocationEvent> filter : filters) {
             samples = samples.filter(filter);
         }
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", config.isReverseOn());
+        return samples.toList();
     }
 
     byte[] getLockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredLockSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", config.isReverseOn());
+    }
+
+    TimeTable getLockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        return TimeTableCreator.create(generateTimeStats(getFilteredLockSamples(config, jfrParsedFile)), type, config.getTableLimit());
+    }
+
+    private List<JfrParsedLockEvent> getFilteredLockSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
         List<Predicate<JfrParsedLockEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedLockEvent.class);
 
         Stream<JfrParsedLockEvent> samples = jfrParsedFile.getLockSamples().stream();
         for (Predicate<JfrParsedLockEvent> filter : filters) {
             samples = samples.filter(filter);
         }
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(samples.toList(), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", config.isReverseOn());
+
+        return samples.toList();
     }
 
     UUID parseNewFiles(List<String> files) {
@@ -163,18 +182,23 @@ class StatefulJfrViewerService {
     }
 
     private SelfAndTotalTimeStats generateTimeStats(List<? extends JfrParsedCommonStackTraceEvent> events) {
+        return generateTimeStats(events, ignored -> 1L);
+    }
+
+    private <T extends JfrParsedCommonStackTraceEvent> SelfAndTotalTimeStats generateTimeStats(List<T> events, Function<T, Long> countFunction) {
         SelfAndTotalTimeStats selfAndTotalTimeStats = new SelfAndTotalTimeStats();
         events.stream().parallel()
                 .forEach(event -> {
                     String[] stackTrace = event.getStackTrace();
                     Set<String> visited = new HashSet<>();
-                    selfAndTotalTimeStats.newStackTrace();
+                    Long count = countFunction.apply(event);
+                    selfAndTotalTimeStats.newStackTrace(count);
                     for (int i = stackTrace.length - 1; i >= 0; i--) {
                         if (visited.contains(stackTrace[i])) {
                             continue;
                         }
                         visited.add(stackTrace[i]);
-                        selfAndTotalTimeStats.methodSample(stackTrace[i], i == stackTrace.length - 1);
+                        selfAndTotalTimeStats.methodSample(stackTrace[i], i == stackTrace.length - 1, count);
                     }
                 });
         return selfAndTotalTimeStats;

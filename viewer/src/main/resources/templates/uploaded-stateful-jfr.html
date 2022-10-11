@@ -21,6 +21,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="/css/upload-materialized.css" rel="stylesheet">
 </head>
 
@@ -34,14 +35,36 @@
                     <div class="card-title">
                         What do you need?
                     </div>
-                    <p class="row">
-                        <a target="_blank" href="#" onclick="return enableFlameGraphs()">Flame graphs</a>
+
+                    <p>
+                        <label>
+                            <input name="page" type="radio" onclick="return enableFlameGraphs()"/>
+                            <span>Flame graphs</span>
+                        </label>
                     </p>
-                    <p class="row">
-                        <a target="_blank" href="#" onclick="return enableCorrelationId()">Correlation ID stats</a>
+                    <p>
+                        <label>
+                            <input name="page" type="radio" onclick="return enableTotalTimeTable()"/>
+                            <span>Total time table</span>
+                        </label>
                     </p>
-                    <p class="row">
-                        <a target="_blank" href="#" onclick="return enableCpu()">CPU stats</a>
+                    <p>
+                        <label>
+                            <input class="with-gap" name="page" type="radio" onclick="return enableSelfTimeTable()"/>
+                            <span>Self time table</span>
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <input name="page" type="radio" onclick="return enableCorrelationId()"/>
+                            <span>Correlation ID stats</span>
+                        </label>
+                    </p>
+                    <p>
+                        <label>
+                            <input name="page" type="radio" onclick="return enableCpu()"/>
+                            <span>CPU stats</span>
+                        </label>
                     </p>
                 </div>
             </div>
@@ -51,25 +74,54 @@
                     <div class="card-title">
                         Available events
                     </div>
-                    <p class="row" th:if="${file.executionSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return updatePages(this)"
-                           th:data-current="${currentId}"
-                           th:data-url="'/stateful-jfr/single/samples/execution?id=' + ${currentId}">Execution samples</a>
+
+                    <p th:if="${file.getExecutionSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/execution?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/execution?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/execution?id=' + ${currentId}"
+                            />
+                            <span>Execution samples</span>
+                        </label>
                     </p>
-                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return updatePages(this)"
-                           th:data-current="${currentId}"
-                           th:data-url="'/stateful-jfr/single/samples/allocation/count?id=' + ${currentId}">Alloc. samples (count)</a>
+                    <p th:if="${file.getAllocationSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/count?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/count?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/allocation/count?id=' + ${currentId}"
+                            />
+                            <span>Alloc. samples (count)</span>
+                        </label>
                     </p>
-                    <p class="row" th:if="${file.allocationSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return updatePages(this)"
-                           th:data-current="${currentId}"
-                           th:data-url="'/stateful-jfr/single/samples/allocation/size?id=' + ${currentId}">Alloc. samples (size)</a>
+                    <p th:if="${file.getAllocationSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/size?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/size?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/allocation/size?id=' + ${currentId}"
+                            />
+                            <span>Alloc. samples (size)</span>
+                        </label>
                     </p>
-                    <p class="row" th:if="${file.lockSamples.size() > 0}">
-                        <a target="_blank" href="#" onclick="return updatePages(this)"
-                           th:data-current="${currentId}"
-                           th:data-url="'/stateful-jfr/single/samples/lock?id=' + ${currentId}">Lock samples</a>
+                    <p th:if="${file.getLockSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/lock?id=' + ${currentId}"
+                            />
+                            <span>Alloc. samples (size)</span>
+                        </label>
                     </p>
                 </div>
             </div>
@@ -79,16 +131,25 @@
                     <div class="card-title">
                         Additional options
                     </div>
-                    <div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <label>
-                                    <input id="reverseOn" name="reverseOn" type="checkbox"/>
-                                    <span>Reverse flame graph</span>
-                                </label>
-                            </div>
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <input id="tableLimit" name="tableLimit" type="text" value="10000"/>
+                            <label for="tableLimit">Table limit</label>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="reverseOn" name="reverseOn" type="checkbox"/>
+                                <span>Reverse flame graph</span>
+                            </label>
+                        </div>
+                    </div>
+                    <p class="right-align">
+                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
+                            <i class="material-icons left">replay</i>reload
+                        </a>
+                    </p>
                 </div>
             </div>
 
@@ -204,6 +265,11 @@
                             </label>
                         </div>
                     </div>
+                    <p class="right-align">
+                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
+                            <i class="material-icons left">replay</i>reload
+                        </a>
+                    </p>
                 </div>
             </div>
 
@@ -259,6 +325,11 @@
                             </div>
                         </div>
                     </div>
+                    <p class="right-align">
+                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
+                            <i class="material-icons left">replay</i>reload
+                        </a>
+                    </p>
                 </div>
             </div>
 
@@ -355,7 +426,20 @@
         externalContent.show();
         externalContent.data("toShow", "flameGraphUrl");
         updateExternalContent();
-        return false;
+    }
+
+    function enableTotalTimeTable() {
+        let externalContent = $("#externalContent");
+        externalContent.show();
+        externalContent.data("toShow", "totalTimeTableUrl");
+        updateExternalContent();
+    }
+
+    function enableSelfTimeTable() {
+        let externalContent = $("#externalContent");
+        externalContent.show();
+        externalContent.data("toShow", "selfTimeTableUrl");
+        updateExternalContent();
     }
 
     function enableCorrelationId() {
@@ -363,7 +447,6 @@
         externalContent.show();
         externalContent.data("toShow", "correlationIdStatsUrl");
         updateExternalContent();
-        return false;
     }
 
     function enableCpu() {
@@ -372,7 +455,6 @@
         externalContent.data("toShow", "cpuStatsUrl");
         updateNotEventDependentPages();
         updateExternalContent();
-        return false;
     }
 
     function updateExternalContent() {
@@ -403,30 +485,54 @@
         return false;
     }
 
+    let lastPressed = undefined;
+
     function updatePages(pressed) {
+        if (!pressed) {
+            console.log("using last pressed")
+            pressed = lastPressed;
+        } else {
+            console.log("using pressed")
+            lastPressed = pressed;
+        }
         updateNotEventDependentPages();
-        let flameGraphUrl = $(pressed).data("url");
+        let flameGraphUrl = $(pressed).data("flamesUrl");
+        let totalTimeTableUrl = $(pressed).data("totalTimeTableUrl");
+        let selfTimeTableUrl = $(pressed).data("selfTimeTableUrl");
         let correlationIdStatsUrl = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
         $(".additional-level:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalOptionsContainer").find("input:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
+        });
+        $("#tableLimit").each(function (index) {
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
         });
         $("#additionalFiltersContainer").find("input:checked").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
             correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=on"
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
             flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + $(this).val();
             correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
         });
 
         let externalContent = $("#externalContent");
         externalContent.data("flameGraphUrl", flameGraphUrl);
+        externalContent.data("totalTimeTableUrl", totalTimeTableUrl);
+        externalContent.data("selfTimeTableUrl", selfTimeTableUrl);
         externalContent.data("correlationIdStatsUrl", correlationIdStatsUrl);
         updateExternalContent();
-        return false;
     }
 </script>
 </body>

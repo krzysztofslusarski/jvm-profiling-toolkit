@@ -1,24 +1,25 @@
 package pl.ks.viewer;
 
+import lombok.Value;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import lombok.Value;
 
 @Value
 public class SelfAndTotalTimeStats {
     AtomicLong totalCounter = new AtomicLong();
     Map<String, SelfAndTotalTimeMethodStats> methodStats = new ConcurrentHashMap<>();
 
-    void newStackTrace() {
-        totalCounter.incrementAndGet();
+    void newStackTrace(long count) {
+        totalCounter.addAndGet(count);
     }
 
-    void methodSample(String name, boolean consumingResource) {
+    void methodSample(String name, boolean consumingResource, long count) {
         SelfAndTotalTimeMethodStats stats = methodStats.computeIfAbsent(name, SelfAndTotalTimeMethodStats::new);
-        stats.totalTimeSamples.incrementAndGet();
+        stats.totalTimeSamples.addAndGet(count);
         if (consumingResource) {
-            stats.selfTimeSamples.incrementAndGet();
+            stats.selfTimeSamples.addAndGet(count);
         }
     }
 

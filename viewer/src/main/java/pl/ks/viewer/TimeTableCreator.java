@@ -19,7 +19,7 @@ public class TimeTableCreator {
         var decimalFormat = new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US));
         var totalCount = new BigDecimal(stats.getTotalCounter().get());
         var extractor = getTimeExtractor(type);
-        var comparator = comparingLong(getTimeExtractor(type));
+        var comparator = comparingLong(getTimeExtractor(type)).reversed();
         var content = stats.getMethodStats().entrySet().stream()
                 .sorted(comparator)
                 .limit(limit)

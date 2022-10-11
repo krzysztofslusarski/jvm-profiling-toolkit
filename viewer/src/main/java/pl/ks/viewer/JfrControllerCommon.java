@@ -1,9 +1,10 @@
 package pl.ks.viewer;
 
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 abstract class JfrControllerCommon {
     public static final String ON = "on";
@@ -81,6 +82,9 @@ abstract class JfrControllerCommon {
             additionalLevels.add(AdditionalLevel.ECID);
         }
         builder.additionalLevels(additionalLevels);
+
+        String tableLimit = params.get("tableLimit");
+        builder.tableLimit(tableLimit == null ? 0 : Integer.parseInt(tableLimit));
 
         return builder.build();
     }
