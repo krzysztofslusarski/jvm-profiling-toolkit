@@ -20,4 +20,6 @@ import java.util.List;
 
 public interface JfrParser {
     JfrParsedFile parse(List<Path> jfrFiles);
+
+    JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction);
 }

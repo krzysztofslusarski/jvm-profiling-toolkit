@@ -31,11 +31,12 @@ import pl.ks.collapsed.CollapsedStack;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 public class JfrParsedFile {
-    private final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
-    private final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
-    private final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
-    private final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
-    private final List<String> filenames = new ArrayList<>();
+    final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
+    final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
+    final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
+    final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
+    final List<String> filenames = new ArrayList<>();
+
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
 
     private final Instant parseStartDate = Instant.now();
@@ -156,5 +157,10 @@ public class JfrParsedFile {
             BiFunction<T, Set<AdditionalLevel>, List<String[]>> toStackFunction
     ) {
         return asCollapsed(samples, additionalLevels, toStackFunction, ignored -> 1L);
+    }
+
+    public enum Direction {
+        UP,
+        DOWN
     }
 }

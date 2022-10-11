@@ -1,20 +1,5 @@
 package pl.ks.viewer;
 
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import pl.ks.collapsed.CollapsedStack;
-import pl.ks.jfr.parser.JfrEcidInfo;
-import pl.ks.jfr.parser.JfrParsedAllocationEvent;
-import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
-import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
-import pl.ks.jfr.parser.JfrParsedEventWithTime;
-import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
-import pl.ks.jfr.parser.JfrParsedFile;
-import pl.ks.jfr.parser.JfrParsedLockEvent;
-import pl.ks.jfr.parser.JfrParser;
-import pl.ks.viewer.flamegraph.FlameGraphExecutor;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -33,6 +18,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import pl.ks.collapsed.CollapsedStack;
+import pl.ks.jfr.parser.JfrEcidInfo;
+import pl.ks.jfr.parser.JfrParsedAllocationEvent;
+import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
+import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
+import pl.ks.jfr.parser.JfrParsedEventWithTime;
+import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
+import pl.ks.jfr.parser.JfrParsedFile;
+import pl.ks.jfr.parser.JfrParsedLockEvent;
+import pl.ks.jfr.parser.JfrParser;
+import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -177,8 +176,12 @@ class StatefulJfrViewerService {
                 .toList();
 
         JfrParsedFile parsedFile = jfrParser.parse(paths);
-        parsedFiles.put(uuid, parsedFile);
+        addNewFile(uuid, parsedFile);
         return uuid;
+    }
+
+    void addNewFile(UUID uuid, JfrParsedFile parsedFile) {
+        parsedFiles.put(uuid, parsedFile);
     }
 
     private SelfAndTotalTimeStats generateTimeStats(List<? extends JfrParsedCommonStackTraceEvent> events) {
@@ -258,5 +261,12 @@ class StatefulJfrViewerService {
         }
 
         return filters;
+    }
+
+    UUID trimToMethod(UUID parentUuid, String methodName, JfrParsedFile.Direction direction) {
+        UUID childUuid = UUID.randomUUID();
+        JfrParsedFile childFile = jfrParser.trim(getFile(parentUuid), methodName, direction);
+        addNewFile(childUuid, childFile);
+        return childUuid;
     }
 }

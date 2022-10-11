@@ -15,6 +15,15 @@
  */
 package pl.ks.viewer;
 
+import static pl.ks.viewer.JfrControllerCommon.createConfig;
+import static pl.ks.viewer.TimeTable.Type.SELF_TIME;
+import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -26,16 +35,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static pl.ks.viewer.JfrControllerCommon.createConfig;
-import static pl.ks.viewer.TimeTable.Type.SELF_TIME;
-import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
 
 @Controller
 @RequiredArgsConstructor
@@ -74,6 +73,12 @@ class StatefulJfrViewerController {
     String removeJfr(Model model, @RequestParam("id") UUID uuid) {
         jfrViewerService.remove(uuid);
         return uploadJfr(model);
+    }
+
+    @GetMapping("/stateful-jfr/single/trim")
+    String trimToMethod(Model model, @RequestParam("id") UUID uuid, String methodName, JfrParsedFile.Direction direction) {
+        jfrViewerService.trimToMethod(uuid, methodName, direction);
+        return "uploaded-stateful-jfr";
     }
 
     @ResponseBody

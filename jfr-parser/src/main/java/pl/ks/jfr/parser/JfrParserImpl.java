@@ -37,6 +37,122 @@ class JfrParserImpl implements JfrParser {
         return jfrParsedFile;
     }
 
+    @Override
+    public JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction) {
+        JfrParsedFile child = new JfrParsedFile();
+        parent.filenames.forEach(child::addFilename);
+        parent.executionSamples.stream()
+                .parallel()
+                .forEach(event -> {
+                    var trimmedEvent = createTrimmedEvent(event, method, direction);
+                    if (trimmedEvent != null) {
+                        child.addExecutionSampleEvent(event);
+                    }
+                });
+        parent.allocationSamples.stream()
+                .parallel()
+                .forEach(event -> {
+                    var trimmedEvent = createTrimmedEvent(event, method, direction);
+                    if (trimmedEvent != null) {
+                        child.addAllocationSampleEvent(event);
+                    }
+                });
+        parent.lockSamples.stream()
+                .parallel()
+                .forEach(event -> {
+                    var trimmedEvent = createTrimmedEvent(event, method, direction);
+                    if (trimmedEvent != null) {
+                        child.addLockSampleEvent(event);
+                    }
+                });
+        parent.cpuUsageSamples.stream()
+                .parallel()
+                .forEach(child::addCpuUsageEvent);
+        child.calculateAggregatedDates();
+        return child;
+    }
+
+    private JfrParsedExecutionSampleEvent createTrimmedEvent(JfrParsedExecutionSampleEvent event, String method, JfrParsedFile.Direction direction) {
+        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        if (stackTrace == null) {
+            return null;
+        }
+
+        return JfrParsedExecutionSampleEvent.builder()
+                .consumesCpu(event.isConsumesCpu())
+                .threadName(event.getThreadName())
+                .correlationId(event.getCorrelationId())
+                .filename(event.getFilename())
+                .eventTime(event.getEventTime())
+                .stackTrace(stackTrace)
+                .build();
+    }
+
+    private JfrParsedAllocationEvent createTrimmedEvent(JfrParsedAllocationEvent event, String method, JfrParsedFile.Direction direction) {
+        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        if (stackTrace == null) {
+            return null;
+        }
+
+        return JfrParsedAllocationEvent.builder()
+                .threadName(event.getThreadName())
+                .correlationId(event.getCorrelationId())
+                .filename(event.getFilename())
+                .eventTime(event.getEventTime())
+                .stackTrace(stackTrace)
+                .objectClass(event.getObjectClass())
+                .size(event.getSize())
+                .outsideTLAB(event.isOutsideTLAB())
+                .build();
+    }
+
+    private JfrParsedLockEvent createTrimmedEvent(JfrParsedLockEvent event, String method, JfrParsedFile.Direction direction) {
+        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        if (stackTrace == null) {
+            return null;
+        }
+
+        return JfrParsedLockEvent.builder()
+                .threadName(event.getThreadName())
+                .correlationId(event.getCorrelationId())
+                .filename(event.getFilename())
+                .eventTime(event.getEventTime())
+                .stackTrace(stackTrace)
+                .monitorClass(event.getMonitorClass())
+                .build();
+    }
+
+    private String[] getTrimmedStackTrace(JfrParsedCommonStackTraceEvent event, String method, JfrParsedFile.Direction direction) {
+        int pos = findMethodPosition(event, method);
+        if (pos == -1) {
+            return null;
+        }
+
+        switch (direction) {
+            case UP -> {
+                return Arrays.copyOfRange(event.getStackTrace(), 0, pos + 1);
+            }
+            case DOWN -> {
+                return Arrays.copyOfRange(event.getStackTrace(), pos, event.getStackTrace().length);
+            }
+        }
+        throw new IllegalArgumentException();
+    }
+
+    private int findMethodPosition(JfrParsedCommonStackTraceEvent event, String method) {
+        int i = 0;
+        for (i = 0; i < event.getStackTrace().length; i++) {
+            String frame = event.getStackTrace()[i];
+            if (frame.equals(method)) {
+                break;
+            }
+        }
+        if (i == event.getStackTrace().length) {
+            return -1;
+        }
+        return i;
+    }
+
     private static void parseFile(Path file, JfrParsedFile jfrParsedFile) {
         String filename = file.getFileName().toString();
 
