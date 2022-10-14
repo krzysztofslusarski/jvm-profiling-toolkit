@@ -76,9 +76,11 @@ class StatefulJfrViewerController {
     }
 
     @GetMapping("/stateful-jfr/single/trim")
-    String trimToMethod(Model model, @RequestParam("id") UUID uuid, String methodName, JfrParsedFile.Direction direction) {
+    String trimToMethod(Model model, @RequestParam("id") UUID uuid,
+                        @RequestParam("methodName") String methodName,
+                        @RequestParam("direction") JfrParsedFile.Direction direction) {
         jfrViewerService.trimToMethod(uuid, methodName, direction);
-        return "uploaded-stateful-jfr";
+        return uploadJfr(model);
     }
 
     @ResponseBody

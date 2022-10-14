@@ -102,7 +102,7 @@ class StatefulJfrViewerService {
 
     TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, config.getTableLimit());
+        return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
 
     private List<JfrParsedExecutionSampleEvent> getFilteredExecutionSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -129,12 +129,12 @@ class StatefulJfrViewerService {
 
     TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile)), type, config.getTableLimit());
+        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
 
     TimeTable getAllocationSizeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize), type, config.getTableLimit());
+        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize), type, config.getTableLimit(), uuid);
     }
 
     private List<JfrParsedAllocationEvent> getFilteredAllocationSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -155,7 +155,7 @@ class StatefulJfrViewerService {
 
     TimeTable getLockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredLockSamples(config, jfrParsedFile)), type, config.getTableLimit());
+        return TimeTableCreator.create(generateTimeStats(getFilteredLockSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
 
     private List<JfrParsedLockEvent> getFilteredLockSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {

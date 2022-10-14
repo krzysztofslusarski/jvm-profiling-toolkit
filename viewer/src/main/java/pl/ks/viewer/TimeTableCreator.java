@@ -1,6 +1,6 @@
 package pl.ks.viewer;
 
-import pl.ks.viewer.pages.PageCreatorHelper;
+import static java.util.Comparator.comparingLong;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -8,14 +8,14 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.ToLongFunction;
-
-import static java.util.Comparator.comparingLong;
+import pl.ks.viewer.pages.PageCreatorHelper;
 
 public class TimeTableCreator {
     private static final BigDecimal PERCENT_MULTIPLICAND = new BigDecimal(100);
 
-    public static TimeTable create(SelfAndTotalTimeStats stats, TimeTable.Type type, long limit) {
+    public static TimeTable create(SelfAndTotalTimeStats stats, TimeTable.Type type, long limit, UUID fileId) {
         var decimalFormat = new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US));
         var totalCount = new BigDecimal(stats.getTotalCounter().get());
         var extractor = getTimeExtractor(type);
@@ -33,6 +33,7 @@ public class TimeTableCreator {
 
         return TimeTable.builder()
                 .rows(content)
+                .fileId(fileId)
                 .build();
     }
 

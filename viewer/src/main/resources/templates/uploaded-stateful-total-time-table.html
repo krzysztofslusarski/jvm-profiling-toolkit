@@ -42,6 +42,7 @@
                             <th>Method name</th>
                             <th>Samples</th>
                             <th>Percent</th>
+                            <th>Trim</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -49,6 +50,15 @@
                             <td th:inline="text">[[${row.methodName}]]</td>
                             <td th:inline="text">[[${row.samples}]]</td>
                             <td th:inline="text">[[${row.percent}]]</td>
+                            <td th:inline="text">
+                                <img src="/img/flame.png" height="20"/>
+                                <a target="_blank" th:href="'/stateful-jfr/single/trim?id=' + ${table.fileId} + '&methodName=' + ${row.methodName} + '&direction=UP'">
+                                    <img src="/img/up.png" height="20"/>
+                                </a>
+                                <a target="_blank" th:href="'/stateful-jfr/single/trim?id=' + ${table.fileId} + '&methodName=' + ${row.methodName} + '&direction=DOWN   '">
+                                    <img src="/img/down.png" height="20"/>
+                                </a>
+                            </td>
                         </tr>
                         </tbody>
                     </table>

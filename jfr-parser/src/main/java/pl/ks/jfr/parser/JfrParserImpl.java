@@ -46,7 +46,7 @@ class JfrParserImpl implements JfrParser {
                 .forEach(event -> {
                     var trimmedEvent = createTrimmedEvent(event, method, direction);
                     if (trimmedEvent != null) {
-                        child.addExecutionSampleEvent(event);
+                        child.addExecutionSampleEvent(trimmedEvent);
                     }
                 });
         parent.allocationSamples.stream()
@@ -54,7 +54,7 @@ class JfrParserImpl implements JfrParser {
                 .forEach(event -> {
                     var trimmedEvent = createTrimmedEvent(event, method, direction);
                     if (trimmedEvent != null) {
-                        child.addAllocationSampleEvent(event);
+                        child.addAllocationSampleEvent(trimmedEvent);
                     }
                 });
         parent.lockSamples.stream()
@@ -62,7 +62,7 @@ class JfrParserImpl implements JfrParser {
                 .forEach(event -> {
                     var trimmedEvent = createTrimmedEvent(event, method, direction);
                     if (trimmedEvent != null) {
-                        child.addLockSampleEvent(event);
+                        child.addLockSampleEvent(trimmedEvent);
                     }
                 });
         parent.cpuUsageSamples.stream()
@@ -130,10 +130,10 @@ class JfrParserImpl implements JfrParser {
 
         switch (direction) {
             case UP -> {
-                return Arrays.copyOfRange(event.getStackTrace(), 0, pos + 1);
+                return Arrays.copyOfRange(event.getStackTrace(), pos, event.getStackTrace().length);
             }
             case DOWN -> {
-                return Arrays.copyOfRange(event.getStackTrace(), pos, event.getStackTrace().length);
+                return Arrays.copyOfRange(event.getStackTrace(), 0, pos + 1);
             }
         }
         throw new IllegalArgumentException();
