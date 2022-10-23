@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -73,7 +74,7 @@ class JfrParserImpl implements JfrParser {
     }
 
     private JfrParsedExecutionSampleEvent createTrimmedEvent(JfrParsedExecutionSampleEvent event, String method, JfrParsedFile.Direction direction) {
-        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        var stackTrace = getTrimmedStackTrace(event, method, direction, null);
         if (stackTrace == null) {
             return null;
         }
@@ -89,7 +90,7 @@ class JfrParserImpl implements JfrParser {
     }
 
     private JfrParsedAllocationEvent createTrimmedEvent(JfrParsedAllocationEvent event, String method, JfrParsedFile.Direction direction) {
-        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        var stackTrace = getTrimmedStackTrace(event, method, direction, JfrParsedAllocationEvent::getObjectClass);
         if (stackTrace == null) {
             return null;
         }
@@ -107,7 +108,7 @@ class JfrParserImpl implements JfrParser {
     }
 
     private JfrParsedLockEvent createTrimmedEvent(JfrParsedLockEvent event, String method, JfrParsedFile.Direction direction) {
-        var stackTrace = getTrimmedStackTrace(event, method, direction);
+        var stackTrace = getTrimmedStackTrace(event, method, direction, JfrParsedLockEvent::getMonitorClass);
         if (stackTrace == null) {
             return null;
         }
@@ -122,9 +123,25 @@ class JfrParserImpl implements JfrParser {
                 .build();
     }
 
-    private String[] getTrimmedStackTrace(JfrParsedCommonStackTraceEvent event, String method, JfrParsedFile.Direction direction) {
+    private <T extends JfrParsedCommonStackTraceEvent> String[] getTrimmedStackTrace(
+            T event,
+            String method,
+            JfrParsedFile.Direction direction,
+            Function<T, String> additionalEntryFunction
+    ) {
         int pos = findMethodPosition(event, method);
         if (pos == -1) {
+            if (additionalEntryFunction != null && additionalEntryFunction.apply(event).equals(method)) {
+                switch (direction) {
+                    case UP -> {
+                        return new String[0];
+                    }
+                    case DOWN -> {
+                        return Arrays.copyOf(event.getStackTrace(), event.getStackTrace().length);
+                    }
+                }
+            }
+
             return null;
         }
 

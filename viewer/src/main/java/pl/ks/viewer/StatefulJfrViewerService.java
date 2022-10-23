@@ -129,12 +129,14 @@ class StatefulJfrViewerService {
 
     TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
+        SelfAndTotalTimeStats stats = generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getObjectClass);
+        return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
     }
 
     TimeTable getAllocationSizeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize), type, config.getTableLimit(), uuid);
+        SelfAndTotalTimeStats stats = generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize, JfrParsedAllocationEvent::getObjectClass);
+        return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
     }
 
     private List<JfrParsedAllocationEvent> getFilteredAllocationSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -155,7 +157,8 @@ class StatefulJfrViewerService {
 
     TimeTable getLockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        return TimeTableCreator.create(generateTimeStats(getFilteredLockSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
+        SelfAndTotalTimeStats stats = generateTimeStats(getFilteredLockSamples(config, jfrParsedFile), JfrParsedLockEvent::getMonitorClass);
+        return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
     }
 
     private List<JfrParsedLockEvent> getFilteredLockSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
@@ -184,11 +187,22 @@ class StatefulJfrViewerService {
         parsedFiles.put(uuid, parsedFile);
     }
 
-    private SelfAndTotalTimeStats generateTimeStats(List<? extends JfrParsedCommonStackTraceEvent> events) {
-        return generateTimeStats(events, ignored -> 1L);
+    private <T extends JfrParsedCommonStackTraceEvent> SelfAndTotalTimeStats generateTimeStats(List<T> events) {
+        return generateTimeStats(events, ignored -> 1L, null);
     }
 
-    private <T extends JfrParsedCommonStackTraceEvent> SelfAndTotalTimeStats generateTimeStats(List<T> events, Function<T, Long> countFunction) {
+    private <T extends JfrParsedCommonStackTraceEvent> SelfAndTotalTimeStats generateTimeStats(
+            List<T> events,
+            Function<T, String> additionalConsumingResourceFunction
+    ) {
+        return generateTimeStats(events, ignored -> 1L, additionalConsumingResourceFunction);
+    }
+
+    private <T extends JfrParsedCommonStackTraceEvent> SelfAndTotalTimeStats generateTimeStats(
+            List<T> events,
+            Function<T, Long> countFunction,
+            Function<T, String> additionalConsumingResourceFunction
+    ) {
         SelfAndTotalTimeStats selfAndTotalTimeStats = new SelfAndTotalTimeStats();
         events.stream().parallel()
                 .forEach(event -> {
@@ -201,7 +215,11 @@ class StatefulJfrViewerService {
                             continue;
                         }
                         visited.add(stackTrace[i]);
-                        selfAndTotalTimeStats.methodSample(stackTrace[i], i == stackTrace.length - 1, count);
+                        boolean consumingResource = additionalConsumingResourceFunction == null && i == stackTrace.length - 1;
+                        selfAndTotalTimeStats.methodSample(stackTrace[i], consumingResource, count);
+                    }
+                    if (additionalConsumingResourceFunction != null) {
+                        selfAndTotalTimeStats.methodSample(additionalConsumingResourceFunction.apply(event), true, count);
                     }
                 });
         return selfAndTotalTimeStats;

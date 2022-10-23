@@ -52,10 +52,10 @@
                             <td th:inline="text">[[${row.percent}]]</td>
                             <td th:inline="text">
                                 <img src="/img/flame.png" height="20"/>
-                                <a target="_blank" th:href="'/stateful-jfr/single/trim?id=' + ${table.fileId} + '&methodName=' + ${row.methodName} + '&direction=UP'">
+                                <a target="_blank" th:href="@{/stateful-jfr/single/trim(id=${table.fileId}, methodName=${row.methodName}, direction='UP')}">
                                     <img src="/img/up.png" height="20"/>
                                 </a>
-                                <a target="_blank" th:href="'/stateful-jfr/single/trim?id=' + ${table.fileId} + '&methodName=' + ${row.methodName} + '&direction=DOWN   '">
+                                <a target="_blank" th:href="@{/stateful-jfr/single/trim(id=${table.fileId}, methodName=${row.methodName}, direction='DOWN')}">
                                     <img src="/img/down.png" height="20"/>
                                 </a>
                             </td>
