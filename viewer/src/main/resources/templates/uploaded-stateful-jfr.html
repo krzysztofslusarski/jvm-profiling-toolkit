@@ -66,6 +66,11 @@
                             <span>CPU stats</span>
                         </label>
                     </p>
+                    <p class="right-align">
+                        <a class="waves-effect waves-light btn-small" href="#" style="display:none;" target="_blank" id="newTab">
+                            <i class="material-icons left">open_in_new</i>Open in new tab
+                        </a>
+                    </p>
                 </div>
             </div>
 
@@ -423,35 +428,45 @@
 
     function enableFlameGraphs() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         externalContent.show();
+        newTabButton.show();
         externalContent.data("toShow", "flameGraphUrl");
         updateExternalContent();
     }
 
     function enableTotalTimeTable() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         externalContent.show();
+        newTabButton.show();
         externalContent.data("toShow", "totalTimeTableUrl");
         updateExternalContent();
     }
 
     function enableSelfTimeTable() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         externalContent.show();
+        newTabButton.show();
         externalContent.data("toShow", "selfTimeTableUrl");
         updateExternalContent();
     }
 
     function enableCorrelationId() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         externalContent.show();
+        newTabButton.show();
         externalContent.data("toShow", "correlationIdStatsUrl");
         updateExternalContent();
     }
 
     function enableCpu() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         externalContent.show();
+        newTabButton.show();
         externalContent.data("toShow", "cpuStatsUrl");
         updateNotEventDependentPages();
         updateExternalContent();
@@ -459,13 +474,14 @@
 
     function updateExternalContent() {
         let externalContent = $("#externalContent");
+        let newTabButton = $("#newTab");
         let toShow = externalContent.data("toShow");
-        console.log(toShow);
         if (toShow !== undefined) {
             let newSrc = externalContent.data(toShow);
             console.log(newSrc);
             if (newSrc !== undefined) {
                 externalContent.attr("src", newSrc);
+                newTabButton.attr("href", newSrc);
             }
         }
     }
