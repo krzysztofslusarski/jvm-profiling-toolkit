@@ -16,11 +16,11 @@ spring:
     cache: false
   servlet:
     multipart:
-      max-file-size: 1024MB
-      max-request-size: 1024MB
+      max-file-size: 20480MB
+      max-request-size: 20480MB
 server:
   tomcat:
-    max-http-post-size: 1024MB
+    max-http-post-size: 20480MB
   port: 8079
 
 
