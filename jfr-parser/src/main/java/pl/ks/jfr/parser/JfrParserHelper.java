@@ -202,6 +202,15 @@ class JfrParserHelper {
         return null;
     }
 
+    static IMemberAccessor<IQuantity, IItem> findLockDurationAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("duration")) {
+                return (IMemberAccessor<IQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
     static IMemberAccessor<ITypedQuantity, IItem> findCpuJvmUserAccessor(EventArray eventArray) {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("jvmUser")) {

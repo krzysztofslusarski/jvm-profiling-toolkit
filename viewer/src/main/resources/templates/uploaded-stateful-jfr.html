@@ -121,11 +121,23 @@
                             <input name="event" type="radio"
                                    onclick="return updatePages(this)"
                                    th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/lock?id=' + ${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/count?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/count?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/lock/count?id=' + ${currentId}"
                             />
-                            <span>Lock samples</span>
+                            <span>Lock samples (count)</span>
+                        </label>
+                    </p>
+                    <p th:if="${file.getLockSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/time?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/time?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/lock/time?id=' + ${currentId}"
+                            />
+                            <span>Lock samples (time)</span>
                         </label>
                     </p>
                 </div>

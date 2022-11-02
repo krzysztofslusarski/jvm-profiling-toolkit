@@ -34,6 +34,7 @@ public class JfrAccessors {
     IMemberAccessor<IQuantity, IItem> allocationSizeAccessor;
     IMemberAccessor<IMCType, IItem> objectClassAccessor;
     IMemberAccessor<IMCType, IItem> monitorClassAccessor;
+    IMemberAccessor<IQuantity, IItem> lockDurationAccessor;
     IMemberAccessor<String, IItem> stateAccessor;
     IMemberAccessor<IQuantity, IItem> ecidAccessor;
     IMemberAccessor<ITypedQuantity, IItem> jvmUserAccessor;

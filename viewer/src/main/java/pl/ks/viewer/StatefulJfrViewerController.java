@@ -15,15 +15,6 @@
  */
 package pl.ks.viewer;
 
-import static pl.ks.viewer.JfrControllerCommon.createConfig;
-import static pl.ks.viewer.TimeTable.Type.SELF_TIME;
-import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
-
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
@@ -35,6 +26,16 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import pl.ks.jfr.parser.JfrParsedFile;
 import pl.ks.viewer.io.TempFileUtils;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static pl.ks.viewer.JfrControllerCommon.createConfig;
+import static pl.ks.viewer.TimeTable.Type.SELF_TIME;
+import static pl.ks.viewer.TimeTable.Type.TOTAL_TIME;
 
 @Controller
 @RequiredArgsConstructor
@@ -102,9 +103,15 @@ class StatefulJfrViewerController {
     }
 
     @ResponseBody
-    @GetMapping("/stateful-jfr/single/flames/lock")
-    byte[] getLockSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        return jfrViewerService.getLockSamplesFlameGraph(uuid, createConfig(params));
+    @GetMapping("/stateful-jfr/single/flames/lock/count")
+    byte[] getLockCountSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getLockCountSamplesFlameGraph(uuid, createConfig(params));
+    }
+
+    @ResponseBody
+    @GetMapping("/stateful-jfr/single/flames/lock/time")
+    byte[] getLockTimeSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getLockTimeSamplesFlameGraph(uuid, createConfig(params));
     }
 
     @GetMapping("/stateful-jfr/single/correlation-id-stats")
@@ -137,9 +144,15 @@ class StatefulJfrViewerController {
         return "uploaded-stateful-total-time-table";
     }
 
-    @GetMapping("/stateful-jfr/single/table/total/lock")
-    String getLockTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        model.addAttribute("table", jfrViewerService.getLockSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+    @GetMapping("/stateful-jfr/single/table/total/lock/count")
+    String getLockCountTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockCountSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/total/lock/time")
+    String getLockTimeTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockTimeSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
         return "uploaded-stateful-total-time-table";
     }
 
@@ -161,10 +174,15 @@ class StatefulJfrViewerController {
         return "uploaded-stateful-self-time-table";
     }
 
-    @GetMapping("/stateful-jfr/single/table/self/lock")
-    String getLockSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        model.addAttribute("table", jfrViewerService.getLockSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+    @GetMapping("/stateful-jfr/single/table/self/lock/count")
+    String getLockCountSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockCountSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
         return "uploaded-stateful-self-time-table";
     }
 
+    @GetMapping("/stateful-jfr/single/table/self/lock/time")
+    String getLockTimeSelfTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getLockTimeSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
 }

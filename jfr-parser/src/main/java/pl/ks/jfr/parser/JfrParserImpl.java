@@ -1,12 +1,14 @@
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
-import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
-import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
+import lombok.extern.slf4j.Slf4j;
+import org.openjdk.jmc.common.IMCFrame;
+import org.openjdk.jmc.common.IMCMethod;
+import org.openjdk.jmc.common.unit.ITypedQuantity;
+import org.openjdk.jmc.common.unit.UnitLookup;
+import org.openjdk.jmc.flightrecorder.JfrAttributes;
+import org.openjdk.jmc.flightrecorder.internal.EventArray;
+import org.openjdk.jmc.flightrecorder.internal.EventArrays;
+import org.springframework.util.StopWatch;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -15,14 +17,14 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
-import lombok.extern.slf4j.Slf4j;
-import org.openjdk.jmc.common.IMCFrame;
-import org.openjdk.jmc.common.IMCMethod;
-import org.openjdk.jmc.common.unit.ITypedQuantity;
-import org.openjdk.jmc.flightrecorder.JfrAttributes;
-import org.openjdk.jmc.flightrecorder.internal.EventArray;
-import org.openjdk.jmc.flightrecorder.internal.EventArrays;
-import org.springframework.util.StopWatch;
+
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
+import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
@@ -228,6 +230,7 @@ class JfrParserImpl implements JfrParser {
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .monitorClassAccessor(JfrParserHelper.findMonitorClassAccessor(eventArray))
+                .lockDurationAccessor(JfrParserHelper.findLockDurationAccessor(eventArray))
                 .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
@@ -235,6 +238,7 @@ class JfrParserImpl implements JfrParser {
             List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
             jfrParsedFile.addLockSampleEvent(JfrParsedLockEvent.builder()
                     .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
+                    .duration(accessors.getLockDurationAccessor() != null ? accessors.getLockDurationAccessor().getMember(event).in(UnitLookup.NANOSECOND).longValue() : 0L)
                     .filename(filename)
                     .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
