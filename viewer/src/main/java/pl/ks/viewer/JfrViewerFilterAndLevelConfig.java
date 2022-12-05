@@ -45,4 +45,5 @@ public class JfrViewerFilterAndLevelConfig {
     boolean reverseOn;
     Set<AdditionalLevel> additionalLevels;
     int tableLimit;
+    String localeLanguage;
 }

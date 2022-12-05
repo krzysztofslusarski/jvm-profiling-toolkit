@@ -30,7 +30,8 @@ abstract class JfrControllerCommon {
             builder
                     .duration(Long.parseLong(params.get("duration")))
                     .endDate(params.get("endDate"))
-                    .endDateDateTimeFormat(params.get("endDateDateTimeFormat"));
+                    .endDateDateTimeFormat(params.get("endDateDateTimeFormat"))
+                    .localeLanguage(params.get("localeLanguage"));
         }
 
         boolean warmupCooldownOn = ON.equals(params.get("warmupCooldownOn"));

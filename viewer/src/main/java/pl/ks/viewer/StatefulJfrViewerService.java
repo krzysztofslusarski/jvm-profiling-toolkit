@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -259,7 +260,8 @@ class StatefulJfrViewerService {
 
         if (JfrParsedEventWithTime.class.isAssignableFrom(clazz)) {
             if (config.isEndDurationOn()) {
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat());
+                Locale locale = new Locale(config.getLocaleLanguage());
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat(), locale);
                 Date parsedDate = simpleDateFormat.parse(config.getEndDate());
                 Instant endDate = parsedDate.toInstant();
                 Instant startDate = endDate.minus(config.getDuration(), ChronoUnit.MILLIS);
