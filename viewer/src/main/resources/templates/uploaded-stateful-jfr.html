@@ -504,7 +504,7 @@
             cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
-            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + encodeURIComponent($(this).val());
         });
 
         let externalContent = $("#externalContent");
@@ -549,10 +549,11 @@
             selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
         });
         $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
-            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
+            let val = encodeURIComponent($(this).val());
+            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + val;
+            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + val;
+            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + val;
+            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + val;
         });
 
         let externalContent = $("#externalContent");
