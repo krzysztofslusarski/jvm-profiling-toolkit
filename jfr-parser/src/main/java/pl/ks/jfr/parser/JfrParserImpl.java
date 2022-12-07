@@ -3,6 +3,7 @@ package pl.ks.jfr.parser;
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
+import org.openjdk.jmc.common.IMCStackTrace;
 import org.openjdk.jmc.common.unit.ITypedQuantity;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.JfrAttributes;
@@ -260,7 +261,11 @@ class JfrParserImpl implements JfrParser {
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
-            List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
+            IMCStackTrace stackTrace = accessors.getStackTraceAccessor().getMember(event);
+            if (stackTrace == null) {
+                return;
+            }
+            List<? extends IMCFrame> frames = stackTrace.getFrames();
             jfrParsedFile.addAllocationSampleEvent(JfrParsedAllocationEvent.builder()
                     .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
                     .filename(filename)
