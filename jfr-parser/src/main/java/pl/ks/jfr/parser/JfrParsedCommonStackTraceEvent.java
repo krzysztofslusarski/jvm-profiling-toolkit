@@ -1,11 +1,6 @@
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.ECID;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.FILENAME;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.THREAD;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_100_MS;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_10_S;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_1_S;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -14,7 +9,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
+
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.ECID;
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.FILENAME;
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.THREAD;
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_100_MS;
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_10_S;
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_1_S;
 
 public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
@@ -29,6 +30,15 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     String getFilename();
 
     Instant getEventTime();
+
+    default boolean stackTraceContains(String part) {
+        for (String frame : getStackTrace()) {
+            if (frame.contains(part)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     default void addCommonStackTraceElements(List<String[]> fullStackTrace, Set<AdditionalLevel> additionalLevels) {
         if (additionalLevels.contains(ECID)) {

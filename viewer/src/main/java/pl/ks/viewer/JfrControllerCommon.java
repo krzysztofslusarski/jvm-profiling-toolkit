@@ -50,6 +50,12 @@ abstract class JfrControllerCommon {
                     .wdWarmup(Integer.parseInt(params.get("wdWarmup")));
         }
 
+        boolean stackTraceFilterOn = ON.equals(params.get("stackTraceFilterOn"));
+        builder.stackTraceFilterOn(stackTraceFilterOn);
+        if (stackTraceFilterOn) {
+            builder.stackTraceFilter(params.get("stackTraceFilter"));
+        }
+
         boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
         builder.ecidFilterOn(ecidFilterOn);
         if (ecidFilterOn) {

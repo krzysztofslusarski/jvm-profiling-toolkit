@@ -192,14 +192,27 @@
 
                         <div class="input-field col s12">
                             <label>
+                                <input id="stackTraceFilterOn" name="stackTraceFilterOn" type="checkbox"/>
+                                <span>Stack trace filter</span>
+                            </label>
+                        </div>
+                        <div id="stackTraceFilterContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="stackTraceFilter" name="stackTraceFilter" type="text"/>
+                                <label for=stackTraceFilter>Stack trace filter</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
                                 <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
-                                <span>ECID filter</span>
+                                <span>Correlation id filter</span>
                             </label>
                         </div>
                         <div id="ecidFilterContent" style="display: none">
                             <div class="input-field col s12">
                                 <input id="ecidFilter" name="ecidFilter" type="text"/>
-                                <label for=ecidFilter>ECID filter</label>
+                                <label for=ecidFilter>Correlation id filter</label>
                             </div>
                         </div>
 
@@ -387,6 +400,13 @@
             $("#ecidFilterContent").show();
         } else {
             $("#ecidFilterContent").hide();
+        }
+    });
+    $("#stackTraceFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#stackTraceFilterContent").show();
+        } else {
+            $("#stackTraceFilterContent").hide();
         }
     });
     $("#startEndTimestampOn").on("change", function () {

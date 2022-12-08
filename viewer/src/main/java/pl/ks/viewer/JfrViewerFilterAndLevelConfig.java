@@ -46,4 +46,6 @@ public class JfrViewerFilterAndLevelConfig {
     Set<AdditionalLevel> additionalLevels;
     int tableLimit;
     String localeLanguage;
+    boolean stackTraceFilterOn;
+    String stackTraceFilter;
 }

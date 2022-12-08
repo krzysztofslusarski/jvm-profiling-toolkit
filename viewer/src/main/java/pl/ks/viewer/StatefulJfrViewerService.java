@@ -256,6 +256,9 @@ class StatefulJfrViewerService {
             if (config.isEcidFilterOn()) {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getCorrelationId() == config.getEcidFilter());
             }
+            if (config.isStackTraceFilterOn()) {
+                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceContains(config.getStackTraceFilter()));
+            }
         }
 
         if (JfrParsedEventWithTime.class.isAssignableFrom(clazz)) {
