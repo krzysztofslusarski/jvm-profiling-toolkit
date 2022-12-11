@@ -312,7 +312,7 @@ class JfrParserImpl implements JfrParser {
         for (int i = 0; i < frames.size(); i++) {
             IMCFrame frame = frames.get(i);
             Integer lineNumber = frame.getFrameLineNumber();
-            lineNumbers[i] = lineNumber == null ? -1 : lineNumber;
+            lineNumbers[frames.size() - i - 1] = lineNumber == null ? -1 : lineNumber;
         }
         return lineNumbers;
     }
