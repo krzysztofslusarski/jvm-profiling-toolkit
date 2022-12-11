@@ -82,6 +82,9 @@ abstract class JfrControllerCommon {
         if (ON.equals(params.get("extractEcid"))) {
             additionalLevels.add(AdditionalLevel.ECID);
         }
+        if (ON.equals(params.get("extractLineNumbers"))) {
+            additionalLevels.add(AdditionalLevel.LINE_NUMBERS);
+        }
         builder.additionalLevels(additionalLevels);
 
         String tableLimit = params.get("tableLimit");

@@ -1,12 +1,5 @@
 package pl.ks.jfr.parser;
 
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.ECID;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.FILENAME;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.THREAD;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_100_MS;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_10_S;
-import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_1_S;
-
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
@@ -16,11 +9,15 @@ import java.util.Locale;
 import java.util.Set;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
+import static pl.ks.jfr.parser.tuning.AdditionalLevel.*;
+
 public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
     ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
 
     String[] getStackTrace();
+
+    int[] getLineNumbers();
 
     long getCorrelationId();
 
@@ -58,6 +55,20 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
         if (additionalLevels.contains(THREAD)) {
             fullStackTrace.add(new String[]{getThreadName()});
         }
-        fullStackTrace.add(getStackTrace());
+        if (additionalLevels.contains(LINE_NUMBERS)) {
+            String[] withLines = new String[getStackTrace().length];
+            for (int i = 0; i < withLines.length; i++) {
+                String frame = getStackTrace()[i];
+                int lineNumber = getLineNumbers()[i];
+                if (lineNumber < 0) {
+                    withLines[i] = frame;
+                } else {
+                    withLines[i] = frame + ":" + lineNumber;
+                }
+            }
+            fullStackTrace.add(withLines);
+        } else {
+            fullStackTrace.add(getStackTrace());
+        }
     }
 }
