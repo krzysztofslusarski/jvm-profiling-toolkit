@@ -27,6 +27,7 @@ import pl.ks.jfr.parser.tuning.AdditionalLevel;
 @Builder
 public class JfrParsedAllocationEvent implements JfrParsedCommonStackTraceEvent {
     String[] stackTrace;
+    int[] lineNumbers;
     long correlationId;
     String threadName;
     String filename;

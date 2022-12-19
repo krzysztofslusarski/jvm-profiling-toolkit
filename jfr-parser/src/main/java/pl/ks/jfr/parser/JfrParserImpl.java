@@ -244,6 +244,7 @@ class JfrParserImpl implements JfrParser {
                     .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
+                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
                     .monitorClass(jfrParsedFile.getCanonicalString(accessors.getMonitorClassAccessor().getMember(event).getFullName()))
                     .build()
             );
@@ -272,6 +273,7 @@ class JfrParserImpl implements JfrParser {
                     .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
+                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
                     .objectClass(jfrParsedFile.getCanonicalString(accessors.getObjectClassAccessor().getMember(event).getFullName()))
                     .size(accessors.getAllocationSizeAccessor().getMember(event).longValue())
                     .outsideTLAB(outsideTLAB)
@@ -299,9 +301,20 @@ class JfrParserImpl implements JfrParser {
                     .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
+                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
                     .build()
             );
         });
+    }
+
+    private static int[] getLineNumbers(JfrParsedFile jfrParsedFile, List<? extends IMCFrame> frames) {
+        int[] lineNumbers = new int[frames.size()];
+        for (int i = 0; i < frames.size(); i++) {
+            IMCFrame frame = frames.get(i);
+            Integer lineNumber = frame.getFrameLineNumber();
+            lineNumbers[frames.size() - i - 1] = lineNumber == null ? -1 : lineNumber;
+        }
+        return lineNumbers;
     }
 
     private static String[] getStackTrace(JfrParsedFile jfrParsedFile, List<? extends IMCFrame> frames) {

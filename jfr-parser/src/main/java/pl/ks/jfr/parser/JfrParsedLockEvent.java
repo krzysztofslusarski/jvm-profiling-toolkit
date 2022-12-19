@@ -28,6 +28,7 @@ import java.util.Set;
 @Builder
 public class JfrParsedLockEvent implements JfrParsedCommonStackTraceEvent {
     String[] stackTrace;
+    int[] lineNumbers;
     long correlationId;
     long duration;
     String threadName;

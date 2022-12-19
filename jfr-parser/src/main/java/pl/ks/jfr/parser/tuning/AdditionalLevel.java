@@ -22,4 +22,5 @@ public enum AdditionalLevel {
     TIMESTAMP_100_MS,
     FILENAME,
     ECID,
+    LINE_NUMBERS,
 }
