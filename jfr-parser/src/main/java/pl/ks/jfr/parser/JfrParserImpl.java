@@ -123,6 +123,7 @@ class JfrParserImpl implements JfrParser {
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
                 .monitorClass(event.getMonitorClass())
+                .duration(event.getDuration())
                 .build();
     }
 
