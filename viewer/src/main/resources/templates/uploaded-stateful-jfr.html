@@ -38,7 +38,7 @@
 
                     <p>
                         <label>
-                            <input name="page" type="radio" onclick="return enableFlameGraphs()"/>
+                            <input name="page" type="radio" onclick="return enableFlameGraphs()" checked/>
                             <span>Flame graphs</span>
                         </label>
                     </p>
@@ -75,7 +75,7 @@
             </div>
 
             <div class="card">
-                <div class="card-content">
+                <div class="card-content" id="events">
                     <div class="card-title">
                         Available events
                     </div>
@@ -319,49 +319,49 @@
                                 <label>
                                     <input class="additional-level" id="extractThreads" name="extractThreads"
                                            type="checkbox"/>
-                                    <span>Add thread level</span>
+                                    <span>Thread</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractTs10S" name="extractTs10S"
                                            type="checkbox"/>
-                                    <span>Add timestamp level (10 second window)</span>
+                                    <span>Timestamp (10s window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractTs1S" name="extractTs1S"
                                            type="checkbox"/>
-                                    <span>Add timestamp level (1 second window)</span>
+                                    <span>Timestamp (1s window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms"
                                            type="checkbox"/>
-                                    <span>Add timestamp level (100 ms window)</span>
+                                    <span>Timestamp (100ms window)</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractFilename" name="extractFilename"
                                            type="checkbox"/>
-                                    <span>Add filename level</span>
+                                    <span>Filename</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractEcid" name="extractEcid"
                                            type="checkbox"/>
-                                    <span>Add correlation id level</span>
+                                    <span>Correlation ID</span>
                                 </label>
                             </div>
                             <div class="input-field col s12">
                                 <label>
                                     <input class="additional-level" id="extractLineNumbers" name="extractLineNumbers"
                                            type="checkbox"/>
-                                    <span>Add line numbers</span>
+                                    <span>Line numbers</span>
                                 </label>
                             </div>
                         </div>
@@ -594,6 +594,11 @@
         externalContent.data("correlationIdStatsUrl", correlationIdStatsUrl);
         updateExternalContent();
     }
+
+    $(document).ready(function () {
+        enableFlameGraphs();
+        $("#events").find("input").first().click();
+    });
 </script>
 </body>
 </html>
