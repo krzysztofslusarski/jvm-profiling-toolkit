@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -266,8 +267,10 @@ class StatefulJfrViewerService {
                 Locale locale = new Locale(config.getLocaleLanguage());
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat(config.getEndDateDateTimeFormat(), locale);
                 Date parsedDate = simpleDateFormat.parse(config.getEndDate());
-                Instant endDate = parsedDate.toInstant();
-                Instant startDate = endDate.minus(config.getDuration(), ChronoUnit.MILLIS);
+                Instant endDateTmp = parsedDate.toInstant();
+                Instant startDateTmp = endDateTmp.minus(config.getDuration(), ChronoUnit.MILLIS);
+                Instant endDate = endDateTmp.with(ChronoField.MILLI_OF_SECOND, 999);
+                Instant startDate = startDateTmp.with(ChronoField.MILLI_OF_SECOND, 0);
                 filters.add(t -> {
                     JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     return !(event.getEventTime().isBefore(startDate) || event.getEventTime().isAfter(endDate));
