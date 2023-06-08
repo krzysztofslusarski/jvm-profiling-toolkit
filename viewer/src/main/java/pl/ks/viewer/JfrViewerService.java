@@ -41,6 +41,7 @@ import pl.ks.jfr.parser.tuning.EcidFilter;
 import pl.ks.jfr.parser.tuning.PreStackFilter;
 import pl.ks.jfr.parser.tuning.StartEndDateFilter;
 import pl.ks.jfr.parser.tuning.StartEndTimestampFilter;
+import pl.ks.jfr.parser.tuning.ThreadNameContainsFilter;
 import pl.ks.jfr.parser.tuning.ThreadNameFilter;
 import pl.ks.viewer.io.TempFileUtils;
 
@@ -91,6 +92,14 @@ class JfrViewerService {
         if (config.isThreadFilterOn()) {
             filters.add(
                     ThreadNameFilter.builder()
+                            .threadName(config.getThreadFilter())
+                            .build()
+            );
+        }
+
+        if (config.isThreadFilterContainsOn()) {
+            filters.add(
+                    ThreadNameContainsFilter.builder()
                             .threadName(config.getThreadFilter())
                             .build()
             );

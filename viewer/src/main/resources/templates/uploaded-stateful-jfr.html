@@ -180,13 +180,26 @@
                         <div class="input-field col s12">
                             <label>
                                 <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
-                                <span>Thread filter</span>
+                                <span>Thread filter (equals)</span>
                             </label>
                         </div>
                         <div id="threadFilterContent" style="display: none">
                             <div class="input-field col s12">
                                 <input id="threadFilter" name="threadFilter" type="text"/>
-                                <label for="threadFilter">Thread filter</label>
+                                <label for="threadFilter">Thread filter (equals)</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="threadFilterContainsOn" name="threadFilterContainsOn" type="checkbox"/>
+                                <span>Thread filter (contains)</span>
+                            </label>
+                        </div>
+                        <div id="threadFilterContainsContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="threadFilterContains" name="threadFilterContains" type="text"/>
+                                <label for="threadFilterContains">Thread filter (contains)</label>
                             </div>
                         </div>
 
@@ -400,6 +413,13 @@
             $("#threadFilterContent").show();
         } else {
             $("#threadFilterContent").hide();
+        }
+    });
+    $("#threadFilterContainsOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#threadFilterContainsContent").show();
+        } else {
+            $("#threadFilterContainsContent").hide();
         }
     });
     $("#ecidFilterOn").on("change", function () {

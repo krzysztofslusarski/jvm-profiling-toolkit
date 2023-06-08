@@ -1,10 +1,9 @@
 package pl.ks.viewer;
 
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 abstract class JfrControllerCommon {
     public static final String ON = "on";
@@ -22,6 +21,12 @@ abstract class JfrControllerCommon {
         builder.threadFilterOn(threadFilterOn);
         if (threadFilterOn) {
             builder.threadFilter(params.get("threadFilter"));
+        }
+
+        boolean threadFilterContainsOn = ON.equals(params.get("threadFilterContainsOn"));
+        builder.threadFilterContainsOn(threadFilterContainsOn);
+        if (threadFilterContainsOn) {
+            builder.threadFilterContains(params.get("threadFilterContains"));
         }
 
         boolean endDurationOn = ON.equals(params.get("endDurationOn"));
