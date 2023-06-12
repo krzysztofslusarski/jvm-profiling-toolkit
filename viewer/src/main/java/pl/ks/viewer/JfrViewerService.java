@@ -100,7 +100,7 @@ class JfrViewerService {
         if (config.isThreadFilterContainsOn()) {
             filters.add(
                     ThreadNameContainsFilter.builder()
-                            .threadName(config.getThreadFilter())
+                            .threadName(config.getThreadFilterContains())
                             .build()
             );
         }

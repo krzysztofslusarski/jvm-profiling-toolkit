@@ -254,7 +254,7 @@ class StatefulJfrViewerService {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getThreadName().equalsIgnoreCase(config.getThreadFilter()));
             }
             if (config.isThreadFilterContainsOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getThreadName().contains(config.getThreadFilterContains().toLowerCase()));
+                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getThreadName().toLowerCase().contains(config.getThreadFilterContains().toLowerCase()));
             }
             if (config.isEcidFilterOn()) {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getCorrelationId() == config.getEcidFilter());
