@@ -206,13 +206,26 @@
                         <div class="input-field col s12">
                             <label>
                                 <input id="stackTraceFilterOn" name="stackTraceFilterOn" type="checkbox"/>
-                                <span>Stack trace filter</span>
+                                <span>Stack trace filter (contains)</span>
                             </label>
                         </div>
                         <div id="stackTraceFilterContent" style="display: none">
                             <div class="input-field col s12">
                                 <input id="stackTraceFilter" name="stackTraceFilter" type="text"/>
-                                <label for=stackTraceFilter>Stack trace filter</label>
+                                <label for=stackTraceFilter>Stack trace filter (contains)</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field col s12">
+                            <label>
+                                <input id="stackTraceNotContainsFilterOn" name="stackTraceNotContainsFilterOn" type="checkbox"/>
+                                <span>Stack trace filter (not contains)</span>
+                            </label>
+                        </div>
+                        <div id="stackTraceNotContainsFilterContent" style="display: none">
+                            <div class="input-field col s12">
+                                <input id="stackTraceNotContainsFilter" name="stackTraceNotContainsFilter" type="text"/>
+                                <label for=stackTraceNotContainsFilter>Stack trace filter (not contains)</label>
                             </div>
                         </div>
 
@@ -434,6 +447,13 @@
             $("#stackTraceFilterContent").show();
         } else {
             $("#stackTraceFilterContent").hide();
+        }
+    });
+    $("#stackTraceNotContainsFilterOn").on("change", function () {
+        if ($(this).prop('checked')) {
+            $("#stackTraceNotContainsFilterContent").show();
+        } else {
+            $("#stackTraceNotContainsFilterContent").hide();
         }
     });
     $("#startEndTimestampOn").on("change", function () {

@@ -49,4 +49,6 @@ public class JfrViewerFilterAndLevelConfig {
     String localeLanguage;
     boolean stackTraceFilterOn;
     String stackTraceFilter;
+    boolean stackTraceNotContainsFilterOn;
+    String stackTraceNotContainsFilter;
 }

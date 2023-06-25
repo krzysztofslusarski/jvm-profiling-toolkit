@@ -61,6 +61,12 @@ abstract class JfrControllerCommon {
             builder.stackTraceFilter(params.get("stackTraceFilter"));
         }
 
+        boolean stackTraceNotContainsFilterOn = ON.equals(params.get("stackTraceNotContainsFilterOn"));
+        builder.stackTraceNotContainsFilterOn(stackTraceNotContainsFilterOn);
+        if (stackTraceNotContainsFilterOn) {
+            builder.stackTraceNotContainsFilter(params.get("stackTraceNotContainsFilter"));
+        }
+
         boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
         builder.ecidFilterOn(ecidFilterOn);
         if (ecidFilterOn) {

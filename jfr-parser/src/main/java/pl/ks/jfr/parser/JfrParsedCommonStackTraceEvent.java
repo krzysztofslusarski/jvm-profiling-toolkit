@@ -43,6 +43,10 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
         return false;
     }
 
+    default boolean stackTraceNotContains(String part) {
+        return !stackTraceContains(part);
+    }
+
     default void addCommonStackTraceElements(List<String[]> fullStackTrace, Set<AdditionalLevel> additionalLevels) {
         if (additionalLevels.contains(ECID)) {
             fullStackTrace.add(new String[]{String.valueOf(getCorrelationId())});

@@ -262,6 +262,9 @@ class StatefulJfrViewerService {
             if (config.isStackTraceFilterOn()) {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceContains(config.getStackTraceFilter()));
             }
+            if (config.isStackTraceNotContainsFilterOn()) {
+                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceNotContains(config.getStackTraceNotContainsFilter()));
+            }
         }
 
         if (JfrParsedEventWithTime.class.isAssignableFrom(clazz)) {
