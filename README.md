@@ -6,14 +6,15 @@ works also with Async-profiler 1.x and Java Flight Recorder.
 
 To benefit from filters with ECID you need to use precompiled Async-profiler from
 [PR](https://github.com/jvm-profiling-tools/async-profiler/pull/576), and make use of a new API created there.
+
+JAVA_HOME should point to JDK 17.
+
 ## How to install - from sources
 ```shell script
 git clone --depth 1 https://github.com/krzysztofslusarski/jvm-profiling-toolkit.git
 cd jvm-profiling-toolkit/
 mvn clean package
 ```
-
-JAVA_HOME should point to JDK 11.
 
 ## How to run
 `java -jar viewer-application/target/viewer-application.jar`
