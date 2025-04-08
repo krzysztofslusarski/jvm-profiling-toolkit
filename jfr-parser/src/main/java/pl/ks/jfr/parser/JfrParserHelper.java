@@ -18,6 +18,7 @@ package pl.ks.jfr.parser;
 import org.openjdk.jmc.common.IDescribable;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
+import org.openjdk.jmc.common.IMCThread;
 import org.openjdk.jmc.common.IMCType;
 import org.openjdk.jmc.common.item.IAccessorKey;
 import org.openjdk.jmc.common.item.IItem;
@@ -60,6 +61,14 @@ class JfrParserHelper {
         if (event.getType() instanceof StructContentType) {
             StructContentType structContentType = (StructContentType) event.getType();
             return structContentType.getIdentifier().equals("jdk.ExecutionSample");
+        }
+        return false;
+    }
+
+    static boolean isWallClockSampleEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("profiler.WallClockSample");
         }
         return false;
     }
@@ -179,6 +188,15 @@ class JfrParserHelper {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("state")) {
                 return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<IMCThread, IItem> findThreadAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("sampledThread")) {
+                return (IMemberAccessor<IMCThread, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
             }
         }
         return null;

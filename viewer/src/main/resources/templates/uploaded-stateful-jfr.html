@@ -92,6 +92,18 @@
                             <span>Execution samples</span>
                         </label>
                     </p>
+                    <p th:if="${file.getWallClockSamples().size() > 0}">
+                        <label>
+                            <input name="event" type="radio"
+                                   onclick="return updatePages(this)"
+                                   th:data-current="${currentId}"
+                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/wall?id=' + ${currentId}"
+                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/wall?id=' + ${currentId}"
+                                   th:data-flames-url="'/stateful-jfr/single/flames/wall?id=' + ${currentId}"
+                            />
+                            <span>Wall-clock samples</span>
+                        </label>
+                    </p>
                     <p th:if="${file.getAllocationSamples().size() > 0}">
                         <label>
                             <input name="event" type="radio"

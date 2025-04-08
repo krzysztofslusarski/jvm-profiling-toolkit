@@ -24,6 +24,7 @@ import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isWallClockSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
 import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
@@ -187,6 +188,8 @@ class JfrParserImpl implements JfrParser {
             for (EventArray eventArray : flightRecording.getArrays()) {
                 if (isExecutionSampleEvent(eventArray)) {
                     processExecutionSample(jfrParsedFile, eventArray, filename);
+                } else if (isWallClockSampleEvent(eventArray)) {
+                    processWallClockSample(jfrParsedFile, eventArray, filename);
                 } else if (isLockEvent(eventArray)) {
                     processLockEvent(jfrParsedFile, eventArray, filename);
                 } else if (isAsyncAllocNewTLABEvent(eventArray)) {
@@ -282,6 +285,30 @@ class JfrParserImpl implements JfrParser {
             );
         });
 
+    }
+
+    private static void processWallClockSample(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {
+        JfrAccessors accessors = JfrAccessors.builder()
+                .stackTraceAccessor(JfrAttributes.EVENT_STACKTRACE.getAccessor(eventArray.getType()))
+                .threadAccessor(JfrParserHelper.findThreadAccessor(eventArray))
+                .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
+                .stateAccessor(JfrParserHelper.findStateAccessor(eventArray))
+                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
+                .build();
+
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
+            List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
+            jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
+                    .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
+                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
+                    .filename(filename)
+                    .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
+                    .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
+                    .stackTrace(getStackTrace(jfrParsedFile, frames))
+                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
+                    .build()
+            );
+        });
     }
 
     private static void processExecutionSample(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {

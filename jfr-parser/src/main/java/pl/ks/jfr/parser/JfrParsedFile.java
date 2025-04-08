@@ -32,6 +32,7 @@ import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 public class JfrParsedFile {
     final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
+    final List<JfrParsedExecutionSampleEvent> wallClockSamples = new ArrayList<>();
     final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
     final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
     final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
@@ -56,6 +57,12 @@ public class JfrParsedFile {
     void addExecutionSampleEvent(JfrParsedExecutionSampleEvent event) {
         synchronized (executionSamples) {
             executionSamples.add(event);
+        }
+    }
+
+    void addWallClockSampleEvent(JfrParsedExecutionSampleEvent event) {
+        synchronized (executionSamples) {
+            wallClockSamples.add(event);
         }
     }
 
@@ -103,6 +110,10 @@ public class JfrParsedFile {
 
     public List<JfrParsedExecutionSampleEvent> getExecutionSamples() {
         return executionSamples;
+    }
+
+    public List<JfrParsedExecutionSampleEvent> getWallClockSamples() {
+        return wallClockSamples;
     }
 
     public List<JfrParsedAllocationEvent> getAllocationSamples() {

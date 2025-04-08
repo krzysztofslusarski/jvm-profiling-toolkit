@@ -91,6 +91,12 @@ class StatefulJfrViewerController {
     }
 
     @ResponseBody
+    @GetMapping("/stateful-jfr/single/flames/wall")
+    byte[] getWallClockSamplesFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        return jfrViewerService.getWallClockSamplesFlameGraph(uuid, createConfig(params));
+    }
+
+    @ResponseBody
     @GetMapping("/stateful-jfr/single/flames/allocation/count")
     byte[] getAllocationSamplesCountFlameGraph(@RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         return jfrViewerService.getAllocationCountSamplesFlameGraph(uuid, createConfig(params));
@@ -132,6 +138,12 @@ class StatefulJfrViewerController {
         return "uploaded-stateful-total-time-table";
     }
 
+    @GetMapping("/stateful-jfr/single/table/total/wall")
+    String getWallTotalTimeTable(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getWallClockSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
+        return "uploaded-stateful-total-time-table";
+    }
+
     @GetMapping("/stateful-jfr/single/table/total/allocation/count")
     String getAllocationCountTotalTimeStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         model.addAttribute("table", jfrViewerService.getAllocationCountSamplesTimeStats(uuid, createConfig(params), TOTAL_TIME));
@@ -159,6 +171,12 @@ class StatefulJfrViewerController {
     @GetMapping("/stateful-jfr/single/table/self/execution")
     String getExecutionSelfTimeTable(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
         model.addAttribute("table", jfrViewerService.getExecutionSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
+        return "uploaded-stateful-self-time-table";
+    }
+
+    @GetMapping("/stateful-jfr/single/table/self/wall")
+    String getWallClockSelfTimeTable(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("table", jfrViewerService.getWallClockSamplesTimeStats(uuid, createConfig(params), SELF_TIME));
         return "uploaded-stateful-self-time-table";
     }
 

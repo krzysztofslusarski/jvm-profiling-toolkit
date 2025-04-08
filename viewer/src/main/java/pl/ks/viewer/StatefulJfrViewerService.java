@@ -99,6 +99,13 @@ class StatefulJfrViewerService {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Wall-clock samples", config.isReverseOn());
+    }
+
+    byte[] getWallClockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredWallClockSamples(config, jfrParsedFile),
+                config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
         return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
     }
 
@@ -107,10 +114,25 @@ class StatefulJfrViewerService {
         return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
 
+    TimeTable getWallClockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+        JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
+        return TimeTableCreator.create(generateTimeStats(getFilteredWallClockSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
+    }
+
     private List<JfrParsedExecutionSampleEvent> getFilteredExecutionSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
         List<Predicate<JfrParsedExecutionSampleEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedExecutionSampleEvent.class);
 
         Stream<JfrParsedExecutionSampleEvent> samples = jfrParsedFile.getExecutionSamples().stream();
+        for (Predicate<JfrParsedExecutionSampleEvent> filter : filters) {
+            samples = samples.filter(filter);
+        }
+        return samples.toList();
+    }
+
+    private List<JfrParsedExecutionSampleEvent> getFilteredWallClockSamples(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile) {
+        List<Predicate<JfrParsedExecutionSampleEvent>> filters = createFilters(config, jfrParsedFile, JfrParsedExecutionSampleEvent.class);
+
+        Stream<JfrParsedExecutionSampleEvent> samples = jfrParsedFile.getWallClockSamples().stream();
         for (Predicate<JfrParsedExecutionSampleEvent> filter : filters) {
             samples = samples.filter(filter);
         }
