@@ -46,6 +46,14 @@ class JfrParserImpl implements JfrParser {
     public JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction) {
         JfrParsedFile child = new JfrParsedFile();
         parent.filenames.forEach(child::addFilename);
+        parent.wallClockSamples.stream()
+                .parallel()
+                .forEach(event -> {
+                    var trimmedEvent = createTrimmedEvent(event, method, direction);
+                    if (trimmedEvent != null) {
+                        child.addWallClockSampleEvent(trimmedEvent);
+                    }
+                });
         parent.executionSamples.stream()
                 .parallel()
                 .forEach(event -> {
