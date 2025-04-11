@@ -99,14 +99,14 @@ class StatefulJfrViewerService {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Wall-clock samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
     }
 
     byte[] getWallClockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredWallClockSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Wall-clock samples", config.isReverseOn());
     }
 
     TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
