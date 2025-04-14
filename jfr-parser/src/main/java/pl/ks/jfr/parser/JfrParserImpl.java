@@ -91,6 +91,19 @@ class JfrParserImpl implements JfrParser {
             return null;
         }
 
+        var lineNumbers = event.getLineNumbers();
+
+        switch (direction) {
+            case UP -> {
+                lineNumbers = Arrays.copyOfRange(lineNumbers,
+                        event.getStackTrace().length - stackTrace.length, event.getStackTrace().length);
+            }
+            case DOWN -> {
+                lineNumbers = Arrays.copyOfRange(lineNumbers, 0, stackTrace.length);
+            }
+        };
+
+
         return JfrParsedExecutionSampleEvent.builder()
                 .consumesCpu(event.isConsumesCpu())
                 .threadName(event.getThreadName())
@@ -98,6 +111,7 @@ class JfrParserImpl implements JfrParser {
                 .filename(event.getFilename())
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
+                .lineNumbers(lineNumbers)
                 .build();
     }
 
