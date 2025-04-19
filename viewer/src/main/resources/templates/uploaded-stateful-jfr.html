@@ -32,7 +32,7 @@
         <div class="col s2">
             <div class="card">
                 <div class="card-content">
-                    <div class="card-title">
+                    <div class="card-title not-hidden-at-start">
                         What do you need?
                     </div>
 
@@ -422,8 +422,8 @@
 
         <div class="col s10">
             <div class="card">
-                <div class="card-content">
-                    <iframe id="externalContent" width="100%" height="1000px" frameBorder="0" style="display:none;"></iframe>
+                <div class="card-content iframe-wrapper">
+                    <iframe id="externalContent"></iframe>
                 </div>
             </div>
         </div>
@@ -650,6 +650,16 @@
     $(document).ready(function () {
         enableFlameGraphs();
         $("#events").find("input").first().click();
+        $(".card-title").on("click", function () {
+            $(this).siblings().each(function (index) {
+                $(this).toggle();
+            });
+        });
+        $(".card-title").not(".not-hidden-at-start").each(function (index) {
+            $(this).siblings().each(function (subIndex) {
+                $(this).toggle();
+            });
+        });
     });
 </script>
 </body>
