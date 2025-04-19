@@ -25,18 +25,12 @@ import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 @Configuration(proxyBeanMethods = false)
 @RequiredArgsConstructor
 class ViewerConfiguration {
-    private final JfrCollapsedParser jfrCollapsedParser;
     private final JfrParser jfrParser;
     private final FlameGraphExecutor flameGraphExecutor;
 
     @Bean
     CollapsedStackPageCreator collapsedStackPageCreator() {
         return new CollapsedStackPageCreator();
-    }
-
-    @Bean
-    JfrViewerService jfrViewerService() {
-        return new JfrViewerService(jfrCollapsedParser);
     }
 
     @Bean

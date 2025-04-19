@@ -41,6 +41,7 @@ public class JfrParsedFile {
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
 
     private final Instant parseStartDate = Instant.now();
+    private boolean oldAsyncProfiler;
     private Instant minEventDate;
     private Instant maxEventDate;
 
@@ -173,5 +174,13 @@ public class JfrParsedFile {
     public enum Direction {
         UP,
         DOWN
+    }
+
+    public boolean isOldAsyncProfiler() {
+        return oldAsyncProfiler;
+    }
+
+    public void setOldAsyncProfiler(boolean oldAsyncProfiler) {
+        this.oldAsyncProfiler = oldAsyncProfiler;
     }
 }

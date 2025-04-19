@@ -39,11 +39,11 @@ class JfrParserImpl implements JfrParser {
     private static final Map<Class, Field> FIELD_MAP = new ConcurrentHashMap<>();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles) {
+    public JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         JfrParsedFile jfrParsedFile = new JfrParsedFile();
-        jfrFiles.forEach(path -> parseFile(path, jfrParsedFile));
+        jfrFiles.forEach(path -> parseFile(path, jfrParsedFile, oldAsyncProfiler));
         jfrParsedFile.calculateAggregatedDates();
         stopWatch.stop();
         log.info("Parsing took: {}ms", stopWatch.getLastTaskTimeMillis());
@@ -53,6 +53,7 @@ class JfrParserImpl implements JfrParser {
     @Override
     public JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction) {
         JfrParsedFile child = new JfrParsedFile();
+        child.setOldAsyncProfiler(parent.isOldAsyncProfiler());
         parent.filenames.forEach(child::addFilename);
         parent.wallClockSamples.stream()
                 .parallel()
@@ -204,8 +205,9 @@ class JfrParserImpl implements JfrParser {
         return i;
     }
 
-    private static void parseFile(Path file, JfrParsedFile jfrParsedFile) {
+    private static void parseFile(Path file, JfrParsedFile jfrParsedFile, boolean oldAsyncProfiler) {
         String filename = file.getFileName().toString();
+        jfrParsedFile.setOldAsyncProfiler(oldAsyncProfiler);
 
         log.info("Input file: " + filename);
         log.info("Parsing JFR");
@@ -402,7 +404,7 @@ class JfrParserImpl implements JfrParser {
             stackTraceBuilder.append(method.getMethodName());
             if (method.getFormalDescriptor().equals("(Lk;)L;")) {
                 stackTraceBuilder.append("_[k]");
-            } else {
+            } else if (!jfrParsedFile.isOldAsyncProfiler()) {
                 switch (type) {
                     case TYPE_INTERPRETED -> {
                         stackTraceBuilder.append("_[0]");
