@@ -15,7 +15,9 @@
  */
 package pl.ks.viewer.flamegraph;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.FileReader;
 import java.io.PrintStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +35,13 @@ public class FlameGraphExecutor {
             } else {
                 args = new String[]{"--title", title, inputFile, outputFile};
             }
-            FlameGraph flameGraph = new FlameGraph(args);
-            flameGraph.parse();
-            flameGraph.dump();
+            FlameGraph flameGraph = new FlameGraph(new Arguments(args));
+            try (BufferedReader bufferedReader = new BufferedReader(new FileReader(inputFile))) {
+                flameGraph.parseCollapsed(bufferedReader);
+            }
+            try (PrintStream printStream = new PrintStream(outputFile)) {
+                flameGraph.dump(printStream);
+            }
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);
@@ -50,8 +56,10 @@ public class FlameGraphExecutor {
             } else {
                 args = new String[]{"--title", title};
             }
-            FlameGraph flameGraph = new FlameGraph(args);
-            flameGraph.parse(new CollapsedStackBufferedReader(inputFile));
+            FlameGraph flameGraph = new FlameGraph(new Arguments(args));
+            try (CollapsedStackBufferedReader bufferedReader = new CollapsedStackBufferedReader(inputFile)) {
+                flameGraph.parseCollapsed(bufferedReader);
+            }
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             flameGraph.dump(new PrintStream(byteArrayOutputStream));
             return byteArrayOutputStream.toByteArray();

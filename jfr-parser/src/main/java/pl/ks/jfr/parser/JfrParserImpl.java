@@ -1,5 +1,6 @@
 package pl.ks.jfr.parser;
 
+
 import lombok.extern.slf4j.Slf4j;
 import org.openjdk.jmc.common.IMCFrame;
 import org.openjdk.jmc.common.IMCMethod;
@@ -9,14 +10,18 @@ import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.JfrAttributes;
 import org.openjdk.jmc.flightrecorder.internal.EventArray;
 import org.openjdk.jmc.flightrecorder.internal.EventArrays;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StopWatch;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
@@ -26,10 +31,13 @@ import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isWallClockSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
+import static pl.ks.jfr.parser.JftFrameType.*;
 import static pl.ks.jfr.parser.ParserUtil.getFlightRecording;
 
 @Slf4j
 class JfrParserImpl implements JfrParser {
+    private static final Map<Class, Field> FIELD_MAP = new ConcurrentHashMap<>();
+
     @Override
     public JfrParsedFile parse(List<Path> jfrFiles) {
         StopWatch stopWatch = new StopWatch();
@@ -318,20 +326,21 @@ class JfrParserImpl implements JfrParser {
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
-            IMCStackTrace member = accessors.getStackTraceAccessor().getMember(event);
-            if (member != null) {
-                List<? extends IMCFrame> frames = member.getFrames();
-                jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
-                        .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
-                        .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
-                        .filename(filename)
-                        .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
-                        .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
-                        .stackTrace(getStackTrace(jfrParsedFile, frames))
-                        .lineNumbers(getLineNumbers(jfrParsedFile, frames))
-                        .build()
-                );
+            IMCStackTrace stackTrace = accessors.getStackTraceAccessor().getMember(event);
+            if (stackTrace == null) {
+                return;
             }
+            List<? extends IMCFrame> frames = stackTrace.getFrames();
+            jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
+                    .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
+                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
+                    .filename(filename)
+                    .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
+                    .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
+                    .stackTrace(getStackTrace(jfrParsedFile, frames))
+                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
+                    .build()
+            );
         });
     }
 
@@ -374,6 +383,9 @@ class JfrParserImpl implements JfrParser {
         for (int i = 0; i < frames.size(); i++) {
             StringBuilder stackTraceBuilder = new StringBuilder();
             IMCFrame frame = frames.get(i);
+
+            JftFrameType type = getType(frame);
+
             IMCMethod method = frame.getMethod();
             String packageName = method.getType().getPackage().getName() == null ? "" : replaceCharacter(method.getType().getPackage().getName(), '/', '.');
             if (packageName.length() > 0) {
@@ -390,9 +402,63 @@ class JfrParserImpl implements JfrParser {
             stackTraceBuilder.append(method.getMethodName());
             if (method.getFormalDescriptor().equals("(Lk;)L;")) {
                 stackTraceBuilder.append("_[k]");
+            } else {
+                switch (type) {
+                    case TYPE_INTERPRETED -> {
+                        stackTraceBuilder.append("_[0]");
+                    }
+                    case TYPE_JIT_COMPILED -> {
+                        stackTraceBuilder.append("_[j]");
+                    }
+                    case TYPE_INLINED -> {
+                        stackTraceBuilder.append("_[i]");
+                    }
+                    case TYPE_KERNEL -> {
+                        stackTraceBuilder.append("_[k]");
+                    }
+                    case TYPE_C1_COMPILED -> {
+                        stackTraceBuilder.append("_[1]");
+                    }
+                }
             }
             stackTrace[frames.size() - i - 1] = jfrParsedFile.getCanonicalString(stackTraceBuilder.toString());
         }
         return stackTrace;
+    }
+
+    private static JftFrameType getType(IMCFrame frame) {
+        Field field = FIELD_MAP.get(frame.getClass());
+        if (field == null) {
+            synchronized (FIELD_MAP) {
+                field = FIELD_MAP.get(frame.getClass());
+                if (field == null) {
+                    field = ReflectionUtils.findField(frame.getClass(), "type");
+                    field.setAccessible(true);
+                    FIELD_MAP.put(frame.getClass(), field);
+                }
+            }
+        }
+        Object type = ReflectionUtils.getField(field, frame);
+        if (type == null) {
+            return TYPE_JIT_COMPILED;
+        }
+        if (type instanceof String) {
+            if ("Native".equals(type)) {
+                return TYPE_NATIVE;
+            } else if ("Kernel".equals(type)) {
+                return TYPE_KERNEL;
+            } else if ("Inlined".equals(type)) {
+                return TYPE_INLINED;
+            } else if ("JIT compiled".equals(type)) {
+                return TYPE_JIT_COMPILED;
+            } else if ("C++".equals(type)) {
+                return TYPE_CPP;
+            } else if ("C1 compiled".equals(type)) {
+                return TYPE_C1_COMPILED;
+            } else if ("Interpreted".equals(type)) {
+                return TYPE_INTERPRETED;
+            }
+        }
+        return TYPE_JIT_COMPILED;
     }
 }

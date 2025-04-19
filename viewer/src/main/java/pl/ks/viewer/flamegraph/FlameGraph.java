@@ -1,130 +1,205 @@
 /*
- * Copyright 2020 Andrei Pangin
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright The async-profiler authors
+ * SPDX-License-Identifier: Apache-2.0
  */
+
 package pl.ks.viewer.flamegraph;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.io.Reader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
-public class FlameGraph {
-    public static final byte FRAME_INTERPRETED = 0;
-    public static final byte FRAME_JIT_COMPILED = 1;
-    public static final byte FRAME_INLINED = 2;
-    public static final byte FRAME_NATIVE = 3;
-    public static final byte FRAME_CPP = 4;
-    public static final byte FRAME_KERNEL = 5;
-    public static final byte FRAME_C1_COMPILED = 6;
+import static pl.ks.viewer.flamegraph.Frame.*;
+import static pl.ks.viewer.flamegraph.ResourceProcessor.*;
+
+public class FlameGraph implements Comparator<Frame> {
+    private static final Frame[] EMPTY_FRAME_ARRAY = {};
+    private static final String[] FRAME_SUFFIX = {"_[0]", "_[j]", "_[i]", "", "", "_[k]", "_[1]"};
+    private static final byte HAS_SUFFIX = (byte) 0x80;
+    private static final int FLUSH_THRESHOLD = 15000;
+    private static final Pattern TID_FRAME_PATTERN = Pattern.compile("\\[(.* )?tid=\\d+]");
 
     private final Arguments args;
-    private final Frame root = new Frame(FRAME_NATIVE);
+    private final Index<String> cpool = new Index<>(String.class, "");
+    private final Frame root = new Frame(0, TYPE_NATIVE);
+    private final StringBuilder outbuf = new StringBuilder(FLUSH_THRESHOLD + 1000);
+    private int[] order;
     private int depth;
+    private int lastLevel;
+    private long lastX;
+    private long lastTotal;
     private long mintotal;
 
     public FlameGraph(Arguments args) {
         this.args = args;
     }
 
-    public FlameGraph(String... args) {
-        this(new Arguments(args));
-    }
+    public void parseCollapsed(BufferedReader br) throws IOException {
+        CallStack stack = new CallStack();
 
-    public void parse() throws IOException {
-        parse(new InputStreamReader(new FileInputStream(args.input), StandardCharsets.UTF_8));
-    }
-
-    public void parse(Reader in) throws IOException {
-        try (BufferedReader br = new BufferedReader(in)) {
-            parse(br);
-        }
-    }
-
-    public void parse(BufferedReader br) throws IOException {
         for (String line; (line = br.readLine()) != null; ) {
             int space = line.lastIndexOf(' ');
             if (space <= 0) continue;
 
-            String[] trace = line.substring(0, space).split(";");
             long ticks = Long.parseLong(line.substring(space + 1));
-            addSample(trace, ticks);
+
+            for (int from = 0, to; from < space; from = to + 1) {
+                if ((to = line.indexOf(';', from)) < 0) to = space;
+                String name = line.substring(from, to);
+                byte type = detectType(name);
+                if ((type & HAS_SUFFIX) != 0) {
+                    name = name.substring(0, name.length() - 4);
+                    type ^= HAS_SUFFIX;
+                }
+                stack.push(name, type);
+            }
+
+            addSample(stack, ticks);
+            stack.clear();
         }
     }
 
-    public void addSample(String[] trace, long ticks) {
-        if (excludeTrace(trace)) {
+    public void parseHtml(Reader in) throws IOException {
+        Frame[] levels = new Frame[128];
+        int level = 0;
+        long total = 0;
+        boolean needRebuild = args.reverse || args.include != null || args.exclude != null;
+
+        try (BufferedReader br = new BufferedReader(in)) {
+            while (!br.readLine().startsWith("const cpool")) ;
+            br.readLine();
+
+            String s = "";
+            for (String line; (line = br.readLine()).startsWith("'"); ) {
+                String packed = unescape(line.substring(1, line.lastIndexOf('\'')));
+                s = s.substring(0, packed.charAt(0) - ' ').concat(packed.substring(1));
+                cpool.put(s, cpool.size());
+            }
+
+            while (!br.readLine().isEmpty()) ;
+
+            for (String line; !(line = br.readLine()).isEmpty(); ) {
+                StringTokenizer st = new StringTokenizer(line.substring(2, line.length() - 1), ",");
+                int nameAndType = Integer.parseInt(st.nextToken());
+
+                char func = line.charAt(0);
+                if (func == 'f') {
+                    level = Integer.parseInt(st.nextToken());
+                    st.nextToken();
+                } else if (func == 'u') {
+                    level++;
+                } else if (func != 'n') {
+                    throw new IllegalStateException("Unexpected line: " + line);
+                }
+
+                if (st.hasMoreTokens()) {
+                    total = Long.parseLong(st.nextToken());
+                }
+
+                int titleIndex = nameAndType >>> 3;
+                byte type = (byte) (nameAndType & 7);
+                if (st.hasMoreTokens() && (type <= TYPE_INLINED || type >= TYPE_C1_COMPILED)) {
+                    type = TYPE_JIT_COMPILED;
+                }
+
+                Frame f = level > 0 || needRebuild ? new Frame(titleIndex, type) : root;
+                f.self = f.total = total;
+                if (st.hasMoreTokens()) f.inlined = Long.parseLong(st.nextToken());
+                if (st.hasMoreTokens()) f.c1 = Long.parseLong(st.nextToken());
+                if (st.hasMoreTokens()) f.interpreted = Long.parseLong(st.nextToken());
+
+                if (level > 0) {
+                    Frame parent = levels[level - 1];
+                    parent.put(f.key, f);
+                    parent.self -= total;
+                    depth = Math.max(depth, level);
+                }
+                if (level >= levels.length) {
+                    levels = Arrays.copyOf(levels, level * 2);
+                }
+                levels[level] = f;
+            }
+        }
+
+        if (needRebuild) {
+            rebuild(levels[0], new CallStack(), cpool.keys());
+        }
+    }
+
+    private void rebuild(Frame frame, CallStack stack, String[] strings) {
+        if (frame.self > 0) {
+            addSample(stack, frame.self);
+        }
+        if (!frame.isEmpty()) {
+            for (Frame child : frame.values()) {
+                stack.push(strings[child.getTitleIndex()], child.getType());
+                rebuild(child, stack, strings);
+                stack.pop();
+            }
+        }
+    }
+
+    public void addSample(CallStack stack, long ticks) {
+        if (excludeStack(stack)) {
             return;
         }
 
         Frame frame = root;
         if (args.reverse) {
-            for (int i = trace.length; --i >= args.skip; ) {
-                frame = frame.addChild(trace[i], ticks);
+            // Retain by-thread grouping, unless thread frame is skipped
+            int skip = args.skip;
+            if (skip == 0 && stack.size > 0 && isThreadFrame(stack.names[0], stack.types[0])) {
+                frame = addChild(frame, stack.names[0], stack.types[0], ticks);
+                skip = 1;
+            }
+            for (int i = stack.size; --i >= skip; ) {
+                frame = addChild(frame, stack.names[i], stack.types[i], ticks);
             }
         } else {
-            for (int i = args.skip; i < trace.length; i++) {
-                frame = frame.addChild(trace[i], ticks);
+            for (int i = args.skip; i < stack.size; i++) {
+                frame = addChild(frame, stack.names[i], stack.types[i], ticks);
             }
         }
-        frame.addLeaf(ticks);
+        frame.total += ticks;
+        frame.self += ticks;
 
-        depth = Math.max(depth, trace.length);
-    }
-
-    public void dump() throws IOException {
-        if (args.output == null) {
-            dump(System.out);
-        } else {
-            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(args.output), 32768);
-                 PrintStream out = new PrintStream(bos, false, "UTF-8")) {
-                dump(out);
-            }
-        }
+        depth = Math.max(depth, stack.size);
     }
 
     public void dump(PrintStream out) {
         mintotal = (long) (root.total * args.minwidth / 100);
-        int depth = mintotal > 1 ? root.depth(mintotal) : this.depth + 1;
+
+        if ("collapsed".equals(args.output)) {
+            printFrameCollapsed(out, root, cpool.keys());
+            return;
+        }
 
         String tail = getResource("/flame.html");
 
         tail = printTill(out, tail, "/*height:*/300");
+        int depth = mintotal > 1 ? root.depth(mintotal) : this.depth + 1;
         out.print(Math.min(depth * 16, 32767));
 
         tail = printTill(out, tail, "/*title:*/");
         out.print(args.title);
 
-        tail = printTill(out, tail, "/*reverse:*/false");
-        out.print(args.reverse);
+        // inverted toggles the layout for reversed stacktraces from icicle to flamegraph
+        // and for default stacktraces from flamegraphs to icicle.
+        tail = printTill(out, tail, "/*inverted:*/false");
+        out.print(args.reverse ^ args.inverted);
 
         tail = printTill(out, tail, "/*depth:*/0");
         out.print(depth);
 
-        tail = printTill(out, tail, "/*frames:*/");
+        tail = printTill(out, tail, "/*cpool:*/");
+        printCpool(out);
 
-        printFrame(out, "all", root, 0, 0);
+        tail = printTill(out, tail, "/*frames:*/");
+        printFrame(out, root, 0, 0);
+        out.print(outbuf);
 
         tail = printTill(out, tail, "/*highlight:*/");
         out.print(args.highlight != null ? "'" + escape(args.highlight) + "'" : "");
@@ -132,173 +207,184 @@ public class FlameGraph {
         out.print(tail);
     }
 
-    private String printTill(PrintStream out, String data, String till) {
-        int index = data.indexOf(till);
-        out.print(data.substring(0, index));
-        return data.substring(index + till.length());
+    private void printCpool(PrintStream out) {
+        String[] strings = cpool.keys();
+        Arrays.sort(strings);
+        out.print("'all'");
+
+        order = new int[strings.length];
+        String s = "";
+        for (int i = 1; i < strings.length; i++) {
+            int prefixLen = Math.min(getCommonPrefix(s, s = strings[i]), 95);
+            out.print(",\n'" + escape((char) (prefixLen + ' ') + s.substring(prefixLen)) + "'");
+            order[cpool.get(s)] = i;
+        }
+
+        // cpool is not used beyond this point
+        cpool.clear();
     }
 
-    private void printFrame(PrintStream out, String title, Frame frame, int level, long x) {
-        int type = frame.getType();
-        if (type == FRAME_KERNEL) {
-            title = stripSuffix(title);
+    private void printFrame(PrintStream out, Frame frame, int level, long x) {
+        int nameAndType = order[frame.getTitleIndex()] << 3 | frame.getType();
+        boolean hasExtraTypes = (frame.inlined | frame.c1 | frame.interpreted) != 0 &&
+                frame.inlined < frame.total && frame.interpreted < frame.total;
+
+        char func = 'f';
+        if (level == lastLevel + 1 && x == lastX) {
+            func = 'u';
+        } else if (level == lastLevel && x == lastX + lastTotal) {
+            func = 'n';
         }
 
-        if ((frame.inlined | frame.c1 | frame.interpreted) != 0 && frame.inlined < frame.total && frame.interpreted < frame.total) {
-            out.println("f(" + level + "," + x + "," + frame.total + "," + type + ",'" + escape(title) + "'," +
-                    frame.inlined + "," + frame.c1 + "," + frame.interpreted + ")");
-        } else {
-            out.println("f(" + level + "," + x + "," + frame.total + "," + type + ",'" + escape(title) + "')");
+        StringBuilder sb = outbuf.append(func).append('(').append(nameAndType);
+        if (func == 'f') {
+            sb.append(',').append(level).append(',').append(x - lastX);
         }
+        if (frame.total != lastTotal || hasExtraTypes) {
+            sb.append(',').append(frame.total);
+            if (hasExtraTypes) {
+                sb.append(',').append(frame.inlined).append(',').append(frame.c1).append(',').append(frame.interpreted);
+            }
+        }
+        sb.append(")\n");
+
+        if (sb.length() > FLUSH_THRESHOLD) {
+            out.print(sb);
+            sb.setLength(0);
+        }
+
+        lastLevel = level;
+        lastX = x;
+        lastTotal = frame.total;
+
+        Frame[] children = frame.values().toArray(EMPTY_FRAME_ARRAY);
+        Arrays.sort(children, this);
 
         x += frame.self;
-        for (Map.Entry<String, Frame> e : frame.entrySet()) {
-            Frame child = e.getValue();
+        for (Frame child : children) {
             if (child.total >= mintotal) {
-                printFrame(out, e.getKey(), child, level + 1, x);
+                printFrame(out, child, level + 1, x);
             }
             x += child.total;
         }
     }
 
-    private boolean excludeTrace(String[] trace) {
+    private void printFrameCollapsed(PrintStream out, Frame frame, String[] strings) {
+        StringBuilder sb = outbuf;
+        int prevLength = sb.length();
+
+        if (frame != root) {
+            sb.append(strings[frame.getTitleIndex()]).append(FRAME_SUFFIX[frame.getType()]);
+            if (frame.self > 0) {
+                int tmpLength = sb.length();
+                out.print(sb.append(' ').append(frame.self).append('\n'));
+                sb.setLength(tmpLength);
+            }
+            sb.append(';');
+        }
+
+        if (!frame.isEmpty()) {
+            for (Frame child : frame.values()) {
+                if (child.total >= mintotal) {
+                    printFrameCollapsed(out, child, strings);
+                }
+            }
+        }
+
+        sb.setLength(prevLength);
+    }
+
+    private boolean excludeStack(CallStack stack) {
         Pattern include = args.include;
         Pattern exclude = args.exclude;
         if (include == null && exclude == null) {
             return false;
         }
 
-        for (String frame : trace) {
-            if (exclude != null && exclude.matcher(frame).matches()) {
+        for (int i = 0; i < stack.size; i++) {
+            if (exclude != null && exclude.matcher(stack.names[i]).matches()) {
                 return true;
             }
-            if (include != null && include.matcher(frame).matches()) {
+            if (include != null && include.matcher(stack.names[i]).matches()) {
+                if (exclude == null) return false;
                 include = null;
-                if (exclude == null) break;
             }
         }
 
         return include != null;
     }
 
-    static String stripSuffix(String title) {
-        return title.substring(0, title.length() - 4);
+    private Frame addChild(Frame frame, String title, byte type, long ticks) {
+        frame.total += ticks;
+
+        int titleIndex = cpool.index(title);
+
+        Frame child;
+        switch (type) {
+            case TYPE_INTERPRETED:
+                (child = frame.getChild(titleIndex, TYPE_JIT_COMPILED)).interpreted += ticks;
+                break;
+            case TYPE_INLINED:
+                (child = frame.getChild(titleIndex, TYPE_JIT_COMPILED)).inlined += ticks;
+                break;
+            case TYPE_C1_COMPILED:
+                (child = frame.getChild(titleIndex, TYPE_JIT_COMPILED)).c1 += ticks;
+                break;
+            default:
+                child = frame.getChild(titleIndex, type);
+        }
+        return child;
     }
 
-    static String escape(String s) {
+    private static byte detectType(String title) {
+        if (title.endsWith("_[j]")) {
+            return TYPE_JIT_COMPILED | HAS_SUFFIX;
+        } else if (title.endsWith("_[i]")) {
+            return TYPE_INLINED | HAS_SUFFIX;
+        } else if (title.endsWith("_[k]")) {
+            return TYPE_KERNEL | HAS_SUFFIX;
+        } else if (title.endsWith("_[0]")) {
+            return TYPE_INTERPRETED | HAS_SUFFIX;
+        } else if (title.endsWith("_[1]")) {
+            return TYPE_C1_COMPILED | HAS_SUFFIX;
+        } else if (title.contains("::") || title.startsWith("-[") || title.startsWith("+[")) {
+            return TYPE_CPP;
+        } else if (title.indexOf('/') > 0 && title.charAt(0) != '['
+                || title.indexOf('.') > 0 && Character.isUpperCase(title.charAt(0))) {
+            return TYPE_JIT_COMPILED;
+        } else {
+            return TYPE_NATIVE;
+        }
+    }
+
+    private static boolean isThreadFrame(String name, byte type) {
+        return type == TYPE_NATIVE && name.startsWith("[") && TID_FRAME_PATTERN.matcher(name).matches();
+    }
+
+    private static int getCommonPrefix(String a, String b) {
+        int length = Math.min(a.length(), b.length());
+        for (int i = 0; i < length; i++) {
+            if (a.charAt(i) != b.charAt(i) || a.charAt(i) > 127) {
+                return i;
+            }
+        }
+        return length;
+    }
+
+    private static String escape(String s) {
         if (s.indexOf('\\') >= 0) s = s.replace("\\", "\\\\");
         if (s.indexOf('\'') >= 0) s = s.replace("'", "\\'");
         return s;
     }
 
-    private static String getResource(String name) {
-        try (InputStream stream = FlameGraph.class.getResourceAsStream(name)) {
-            if (stream == null) {
-                throw new IOException("No resource found");
-            }
-
-            ByteArrayOutputStream result = new ByteArrayOutputStream();
-            byte[] buffer = new byte[64 * 1024];
-            for (int length; (length = stream.read(buffer)) != -1; ) {
-                result.write(buffer, 0, length);
-            }
-            return result.toString("UTF-8");
-        } catch (IOException e) {
-            throw new IllegalStateException("Can't load resource with name " + name);
-        }
+    private static String unescape(String s) {
+        if (s.indexOf('\'') >= 0) s = s.replace("\\'", "'");
+        if (s.indexOf('\\') >= 0) s = s.replace("\\\\", "\\");
+        return s;
     }
 
-    public static void main(String[] cmdline) throws IOException {
-        Arguments args = new Arguments(cmdline);
-        if (args.input == null) {
-            System.out.println("Usage: java " + FlameGraph.class.getName() + " [options] input.collapsed [output.html]");
-            System.out.println();
-            System.out.println("Options:");
-            System.out.println("  --title TITLE");
-            System.out.println("  --reverse");
-            System.out.println("  --minwidth PERCENT");
-            System.out.println("  --skip FRAMES");
-            System.out.println("  --include PATTERN");
-            System.out.println("  --exclude PATTERN");
-            System.out.println("  --highlight PATTERN");
-            System.exit(1);
-        }
-
-        FlameGraph fg = new FlameGraph(args);
-        fg.parse();
-        fg.dump();
-    }
-
-    static class Frame extends TreeMap<String, Frame> {
-        final byte type;
-        long total;
-        long self;
-        long inlined, c1, interpreted;
-
-        Frame(byte type) {
-            this.type = type;
-        }
-
-        byte getType() {
-            if (inlined * 3 >= total) {
-                return FRAME_INLINED;
-            } else if (c1 * 2 >= total) {
-                return FRAME_C1_COMPILED;
-            } else if (interpreted * 2 >= total) {
-                return FRAME_INTERPRETED;
-            } else {
-                return type;
-            }
-        }
-
-        private Frame getChild(String title, byte type) {
-            Frame child = super.get(title);
-            if (child == null) {
-                super.put(title, child = new Frame(type));
-            }
-            return child;
-        }
-
-        Frame addChild(String title, long ticks) {
-            total += ticks;
-
-            Frame child;
-            if (title.endsWith("_[j]")) {
-                child = getChild(stripSuffix(title), FRAME_JIT_COMPILED);
-            } else if (title.endsWith("_[i]")) {
-                (child = getChild(stripSuffix(title), FRAME_JIT_COMPILED)).inlined += ticks;
-            } else if (title.endsWith("_[k]")) {
-                child = getChild(title, FRAME_KERNEL);
-            } else if (title.endsWith("_[1]")) {
-                (child = getChild(stripSuffix(title), FRAME_JIT_COMPILED)).c1 += ticks;
-            } else if (title.endsWith("_[0]")) {
-                (child = getChild(stripSuffix(title), FRAME_JIT_COMPILED)).interpreted += ticks;
-            } else if (title.contains("::") || title.startsWith("-[") || title.startsWith("+[")) {
-                child = getChild(title, FRAME_CPP);
-            } else if (title.indexOf('/') > 0 && title.charAt(0) != '['
-                    || title.indexOf('.') > 0 && Character.isUpperCase(title.charAt(0))) {
-                child = getChild(title, FRAME_JIT_COMPILED);
-            } else {
-                child = getChild(title, FRAME_NATIVE);
-            }
-            return child;
-        }
-
-        void addLeaf(long ticks) {
-            total += ticks;
-            self += ticks;
-        }
-
-        int depth(long cutoff) {
-            int depth = 0;
-            if (size() > 0) {
-                for (Frame child : values()) {
-                    if (child.total >= cutoff) {
-                        depth = Math.max(depth, child.depth(cutoff));
-                    }
-                }
-            }
-            return depth + 1;
-        }
+    @Override
+    public int compare(Frame f1, Frame f2) {
+        return order[f1.getTitleIndex()] - order[f2.getTitleIndex()];
     }
 }

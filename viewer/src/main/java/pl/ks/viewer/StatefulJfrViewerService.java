@@ -297,7 +297,7 @@ class StatefulJfrViewerService {
                 Instant endDateTmp = parsedDate.toInstant();
                 Instant startDateTmp = endDateTmp.minus(config.getDuration(), ChronoUnit.MILLIS);
                 Instant endDate = endDateTmp.with(ChronoField.MILLI_OF_SECOND, 999);
-                Instant startDate = startDateTmp.with(ChronoField.MILLI_OF_SECOND, 0);
+                Instant startDate = startDateTmp;
                 filters.add(t -> {
                     JfrParsedEventWithTime event = (JfrParsedEventWithTime) t;
                     return !(event.getEventTime().isBefore(startDate) || event.getEventTime().isAfter(endDate));
