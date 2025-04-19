@@ -103,7 +103,6 @@ class JfrParserImpl implements JfrParser {
             }
         };
 
-
         return JfrParsedExecutionSampleEvent.builder()
                 .consumesCpu(event.isConsumesCpu())
                 .threadName(event.getThreadName())
@@ -319,17 +318,20 @@ class JfrParserImpl implements JfrParser {
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
-            List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
-            jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
-                    .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
-                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
-                    .filename(filename)
-                    .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
-                    .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
-                    .stackTrace(getStackTrace(jfrParsedFile, frames))
-                    .lineNumbers(getLineNumbers(jfrParsedFile, frames))
-                    .build()
-            );
+            IMCStackTrace member = accessors.getStackTraceAccessor().getMember(event);
+            if (member != null) {
+                List<? extends IMCFrame> frames = member.getFrames();
+                jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
+                        .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
+                        .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
+                        .filename(filename)
+                        .threadName(jfrParsedFile.getCanonicalString(accessors.getThreadAccessor().getMember(event).getThreadName()))
+                        .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
+                        .stackTrace(getStackTrace(jfrParsedFile, frames))
+                        .lineNumbers(getLineNumbers(jfrParsedFile, frames))
+                        .build()
+                );
+            }
         });
     }
 
