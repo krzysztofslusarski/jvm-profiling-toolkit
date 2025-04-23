@@ -33,6 +33,7 @@ public class JfrParsedExecutionSampleEvent implements JfrParsedCommonStackTraceE
     String filename;
     Instant eventTime;
     boolean consumesCpu;
+    long samples;
 
     public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
         List<String[]> fullStackTrace = new ArrayList<>();

@@ -37,6 +37,7 @@ public class JfrAccessors {
     IMemberAccessor<IQuantity, IItem> lockDurationAccessor;
     IMemberAccessor<String, IItem> stateAccessor;
     IMemberAccessor<IQuantity, IItem> ecidAccessor;
+    IMemberAccessor<IQuantity, IItem> samplesAccessor;
     IMemberAccessor<ITypedQuantity, IItem> jvmUserAccessor;
     IMemberAccessor<ITypedQuantity, IItem> jvmSystemAccessor;
     IMemberAccessor<ITypedQuantity, IItem> machineTotalAccessor;

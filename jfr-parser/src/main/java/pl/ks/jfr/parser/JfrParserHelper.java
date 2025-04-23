@@ -193,6 +193,15 @@ class JfrParserHelper {
         return null;
     }
 
+    static IMemberAccessor<IQuantity, IItem> findSamplesAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("samples")) {
+                return (IMemberAccessor<IQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
     static IMemberAccessor<IMCThread, IItem> findThreadAccessor(EventArray eventArray) {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("sampledThread")) {

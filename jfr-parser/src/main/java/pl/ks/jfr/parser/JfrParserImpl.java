@@ -110,7 +110,8 @@ class JfrParserImpl implements JfrParser {
             case DOWN -> {
                 lineNumbers = Arrays.copyOfRange(lineNumbers, 0, stackTrace.length);
             }
-        };
+        }
+        ;
 
         return JfrParsedExecutionSampleEvent.builder()
                 .consumesCpu(event.isConsumesCpu())
@@ -120,6 +121,7 @@ class JfrParserImpl implements JfrParser {
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
                 .lineNumbers(lineNumbers)
+                .samples(event.getSamples())
                 .build();
     }
 
@@ -325,6 +327,7 @@ class JfrParserImpl implements JfrParser {
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .stateAccessor(JfrParserHelper.findStateAccessor(eventArray))
                 .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
+                .samplesAccessor(JfrParserHelper.findSamplesAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -341,6 +344,7 @@ class JfrParserImpl implements JfrParser {
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
                     .lineNumbers(getLineNumbers(jfrParsedFile, frames))
+                    .samples(accessors.getSamplesAccessor() != null ? accessors.getSamplesAccessor().getMember(event).longValue() : 0L)
                     .build()
             );
         });
@@ -365,6 +369,7 @@ class JfrParserImpl implements JfrParser {
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
                     .lineNumbers(getLineNumbers(jfrParsedFile, frames))
+                    .samples(1)
                     .build()
             );
         });
