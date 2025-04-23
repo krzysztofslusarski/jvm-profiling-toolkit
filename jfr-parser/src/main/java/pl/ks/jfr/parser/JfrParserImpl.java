@@ -17,12 +17,12 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
@@ -39,11 +39,12 @@ class JfrParserImpl implements JfrParser {
     private static final Map<Class, Field> FIELD_MAP = new ConcurrentHashMap<>();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler) {
+    public JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler, boolean wallClockExactTime) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        JfrParsedFile jfrParsedFile = new JfrParsedFile();
-        jfrFiles.forEach(path -> parseFile(path, jfrParsedFile, oldAsyncProfiler));
+        JfrParsedFile jfrParsedFile = new JfrParsedFile(oldAsyncProfiler, wallClockExactTime);
+
+        jfrFiles.forEach(path -> parseFile(path, jfrParsedFile));
         jfrParsedFile.calculateAggregatedDates();
         stopWatch.stop();
         log.info("Parsing took: {}ms", stopWatch.getLastTaskTimeMillis());
@@ -52,8 +53,7 @@ class JfrParserImpl implements JfrParser {
 
     @Override
     public JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction) {
-        JfrParsedFile child = new JfrParsedFile();
-        child.setOldAsyncProfiler(parent.isOldAsyncProfiler());
+        JfrParsedFile child = new JfrParsedFile(parent.isOldAsyncProfiler(), parent.isWallClockExactTime());
         parent.filenames.forEach(child::addFilename);
         parent.wallClockSamples.stream()
                 .parallel()
@@ -207,9 +207,8 @@ class JfrParserImpl implements JfrParser {
         return i;
     }
 
-    private static void parseFile(Path file, JfrParsedFile jfrParsedFile, boolean oldAsyncProfiler) {
+    private static void parseFile(Path file, JfrParsedFile jfrParsedFile) {
         String filename = file.getFileName().toString();
-        jfrParsedFile.setOldAsyncProfiler(oldAsyncProfiler);
 
         log.info("Input file: " + filename);
         log.info("Parsing JFR");
@@ -233,10 +232,56 @@ class JfrParserImpl implements JfrParser {
                     processCpuEvent(jfrParsedFile, eventArray, filename);
                 }
             }
+
+            if (jfrParsedFile.isWallClockExactTime() && !jfrParsedFile.getWallClockSamplesToProcess().isEmpty()) {
+                extractExactTime(jfrParsedFile);
+                jfrParsedFile.getWallClockSamplesToProcess().clear();
+            }
         } catch (Exception e) {
             log.error("Fatal error", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private static void extractExactTime(JfrParsedFile jfrParsedFile) {
+        List<JfrParsedExecutionSampleEvent> toProcess = jfrParsedFile.getWallClockSamplesToProcess();
+        Map<String, List<JfrParsedExecutionSampleEvent>> threadToSamples = toProcess.stream()
+                .parallel()
+                .collect(Collectors.groupingBy(JfrParsedExecutionSampleEvent::getThreadName));
+        List<ArrayList<JfrParsedExecutionSampleEvent>> threadSamples = threadToSamples.entrySet().stream()
+                .parallel()
+                .map(entry -> new ArrayList<>(entry.getValue()))
+                .toList();
+        threadSamples.stream()
+                .parallel()
+                .forEach(samples -> extractExactTimeForThread(jfrParsedFile, samples));
+    }
+
+    private static void extractExactTimeForThread(JfrParsedFile jfrParsedFile, List<JfrParsedExecutionSampleEvent> samples) {
+        if (samples.isEmpty()) {
+            return;
+        }
+        samples.sort(Comparator.comparing(JfrParsedExecutionSampleEvent::getEventTime));
+        JfrParsedExecutionSampleEvent currentSample = samples.get(0);
+        for (int i = 1; i < samples.size(); i++) {
+            JfrParsedExecutionSampleEvent nextSample = samples.get(i);
+            if (currentSample.getSamples() == 1) {
+                jfrParsedFile.addProcessedWallClockSampleEvent(currentSample);
+                currentSample = nextSample;
+                continue;
+            }
+
+            long diff = ChronoUnit.MILLIS.between(currentSample.getEventTime(), nextSample.getEventTime());
+            diff /= currentSample.getSamples();
+            JfrParsedExecutionSampleEvent currentSampleWithOneSample = currentSample.withSamples(1);
+            for (int j = 0; j < currentSample.getSamples(); j++) {
+                jfrParsedFile.addProcessedWallClockSampleEvent(
+                        currentSampleWithOneSample.withEventTime(currentSample.getEventTime().plus(diff * i, ChronoUnit.MILLIS))
+                );
+            }
+            currentSample = nextSample;
+        }
+        jfrParsedFile.addProcessedWallClockSampleEvent(currentSample);
     }
 
     private static void processCpuEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {

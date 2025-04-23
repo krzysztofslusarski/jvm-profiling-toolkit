@@ -26,13 +26,18 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import pl.ks.collapsed.CollapsedStack;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
+@RequiredArgsConstructor
 public class JfrParsedFile {
     final List<JfrParsedExecutionSampleEvent> executionSamples = new ArrayList<>();
     final List<JfrParsedExecutionSampleEvent> wallClockSamples = new ArrayList<>();
+    final List<JfrParsedExecutionSampleEvent> wallClockSamplesToProcess = new ArrayList<>();
     final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
     final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
     final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
@@ -41,7 +46,10 @@ public class JfrParsedFile {
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
 
     private final Instant parseStartDate = Instant.now();
-    private boolean oldAsyncProfiler;
+    @Getter
+    private final boolean oldAsyncProfiler;
+    @Getter
+    private final boolean wallClockExactTime;
     private Instant minEventDate;
     private Instant maxEventDate;
 
@@ -62,6 +70,16 @@ public class JfrParsedFile {
     }
 
     void addWallClockSampleEvent(JfrParsedExecutionSampleEvent event) {
+        synchronized (executionSamples) {
+            if (wallClockExactTime) {
+                wallClockSamplesToProcess.add(event);
+                return;
+            }
+            wallClockSamples.add(event);
+        }
+    }
+
+    void addProcessedWallClockSampleEvent(JfrParsedExecutionSampleEvent event) {
         synchronized (executionSamples) {
             wallClockSamples.add(event);
         }
@@ -115,6 +133,10 @@ public class JfrParsedFile {
 
     public List<JfrParsedExecutionSampleEvent> getWallClockSamples() {
         return wallClockSamples;
+    }
+
+    public List<JfrParsedExecutionSampleEvent> getWallClockSamplesToProcess() {
+        return wallClockSamplesToProcess;
     }
 
     public List<JfrParsedAllocationEvent> getAllocationSamples() {
@@ -174,13 +196,5 @@ public class JfrParsedFile {
     public enum Direction {
         UP,
         DOWN
-    }
-
-    public boolean isOldAsyncProfiler() {
-        return oldAsyncProfiler;
-    }
-
-    public void setOldAsyncProfiler(boolean oldAsyncProfiler) {
-        this.oldAsyncProfiler = oldAsyncProfiler;
     }
 }

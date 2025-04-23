@@ -19,7 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 public interface JfrParser {
-    JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler);
+    JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler, boolean wallClockExactTime);
 
     JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction);
 }

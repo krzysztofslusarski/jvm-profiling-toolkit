@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
+import lombok.With;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 @Value
@@ -31,8 +32,10 @@ public class JfrParsedExecutionSampleEvent implements JfrParsedCommonStackTraceE
     long correlationId;
     String threadName;
     String filename;
+    @With
     Instant eventTime;
     boolean consumesCpu;
+    @With
     long samples;
 
     public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
