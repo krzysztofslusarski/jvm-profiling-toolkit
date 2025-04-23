@@ -22,6 +22,8 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
     ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
 
+    String[] FRAME_SUFFIX = {"_[0]", "_[j]", "_[i]", "_[k]", "_[1]"};
+
     String[] getStackTrace();
 
     int[] getLineNumbers();
@@ -84,6 +86,12 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
                     withLines[i] = frame;
                 } else {
                     withLines[i] = frame + ":" + lineNumber;
+                    for (String frameSuffix : FRAME_SUFFIX) {
+                        if (frame.endsWith(frameSuffix)) {
+                            withLines[i] = frame.substring(0, frame.length() - frameSuffix.length()) + ":" + lineNumber + frameSuffix;
+                            break;
+                        }
+                    }
                 }
             }
             fullStackTrace.add(withLines);
