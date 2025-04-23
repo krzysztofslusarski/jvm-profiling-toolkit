@@ -263,6 +263,8 @@ class JfrParserImpl implements JfrParser {
         }
         samples.sort(Comparator.comparing(JfrParsedExecutionSampleEvent::getEventTime));
         JfrParsedExecutionSampleEvent currentSample = samples.get(0);
+        long sumDiff = 0;
+        long countDiff = 0;
         for (int i = 1; i < samples.size(); i++) {
             JfrParsedExecutionSampleEvent nextSample = samples.get(i);
             if (currentSample.getSamples() == 1) {
@@ -273,15 +275,27 @@ class JfrParserImpl implements JfrParser {
 
             long diff = ChronoUnit.MILLIS.between(currentSample.getEventTime(), nextSample.getEventTime());
             diff /= currentSample.getSamples();
+            sumDiff += diff;
+            countDiff++;
             JfrParsedExecutionSampleEvent currentSampleWithOneSample = currentSample.withSamples(1);
             for (int j = 0; j < currentSample.getSamples(); j++) {
                 jfrParsedFile.addProcessedWallClockSampleEvent(
-                        currentSampleWithOneSample.withEventTime(currentSample.getEventTime().plus(diff * i, ChronoUnit.MILLIS))
+                        currentSampleWithOneSample.withEventTime(currentSample.getEventTime().plus(diff * j, ChronoUnit.MILLIS))
                 );
             }
             currentSample = nextSample;
         }
-        jfrParsedFile.addProcessedWallClockSampleEvent(currentSample);
+        if (countDiff == 0) {
+            jfrParsedFile.addProcessedWallClockSampleEvent(currentSample);
+        } else {
+            long diff = sumDiff / countDiff;
+            JfrParsedExecutionSampleEvent currentSampleWithOneSample = currentSample.withSamples(1);
+            for (int j = 0; j < currentSample.getSamples(); j++) {
+                jfrParsedFile.addProcessedWallClockSampleEvent(
+                        currentSampleWithOneSample.withEventTime(currentSample.getEventTime().plus(diff * j, ChronoUnit.MILLIS))
+                );
+            }
+        }
     }
 
     private static void processCpuEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {
