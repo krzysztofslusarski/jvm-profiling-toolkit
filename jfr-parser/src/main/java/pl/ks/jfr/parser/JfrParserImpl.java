@@ -60,7 +60,7 @@ class JfrParserImpl implements JfrParser {
                 .forEach(event -> {
                     var trimmedEvent = createTrimmedEvent(event, method, direction);
                     if (trimmedEvent != null) {
-                        child.addWallClockSampleEvent(trimmedEvent);
+                        child.addProcessedWallClockSampleEvent(trimmedEvent);
                     }
                 });
         parent.executionSamples.stream()
