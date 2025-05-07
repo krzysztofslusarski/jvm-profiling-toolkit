@@ -306,6 +306,9 @@ class JfrParserHelper {
     }
 
     static String replaceCharacter(String str, char toReplace, char replacedWith) {
+        if (str == null) {
+            return "null";
+        }
         char[] chars = str.toCharArray();
         for (int i = 0; i < chars.length; i++) {
             if (chars[i] == toReplace) {
