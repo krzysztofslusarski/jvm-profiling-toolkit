@@ -1,5 +1,9 @@
 package pl.ks.jfr.parser;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 import java.text.DecimalFormat;
@@ -20,9 +24,12 @@ import static pl.ks.jfr.parser.tuning.AdditionalLevel.TIMESTAMP_1_S;
 
 public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
     ThreadLocal<SimpleDateFormat> OUTPUT_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
+    ThreadLocal<DateTimeFormatter> OUTPUT_FORMAT_DTF = ThreadLocal.withInitial(() -> DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US));
     ThreadLocal<DecimalFormat> TIME_STAMP_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0000000000000"));
 
     String[] FRAME_SUFFIX = {"_[0]", "_[j]", "_[i]", "_[k]", "_[1]"};
+    ZoneId SYSTEM_DEFAULT_ZONE_ID = ZoneId.systemDefault();
+    ZoneId UTC_ZONE_ID = ZoneId.of("UTC");
 
     String[] getStackTrace();
 
@@ -55,20 +62,35 @@ public interface JfrParsedCommonStackTraceEvent extends JfrParsedEventWithTime {
         }
         if (additionalLevels.contains(TIMESTAMP_100_MS)) {
             long time = getEventTime().toEpochMilli() / 100;
+            Date date = new Date(time * 100);
+            ZonedDateTime utc = OffsetDateTime.from(date.toInstant().atZone(SYSTEM_DEFAULT_ZONE_ID)).atZoneSameInstant(UTC_ZONE_ID);
             fullStackTrace.add(new String[]{
-                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(new Date(time * 100)) + "_[k]"
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT_DTF.get().format(utc) + " UTC_[k]"
+            });
+            fullStackTrace.add(new String[]{
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(date) + " " + SYSTEM_DEFAULT_ZONE_ID +  "_[k]"
             });
         }
         if (additionalLevels.contains(TIMESTAMP_1_S)) {
             long time = getEventTime().toEpochMilli() / 1000;
+            Date date = new Date(time * 1000);
+            ZonedDateTime utc = OffsetDateTime.from(date.toInstant().atZone(SYSTEM_DEFAULT_ZONE_ID)).atZoneSameInstant(UTC_ZONE_ID);
             fullStackTrace.add(new String[]{
-                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(new Date(time * 1000)) + "_[k]"
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT_DTF.get().format(utc) + " UTC_[k]"
+            });
+            fullStackTrace.add(new String[]{
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(date) + " " + SYSTEM_DEFAULT_ZONE_ID +  "_[k]"
             });
         }
         if (additionalLevels.contains(TIMESTAMP_10_S)) {
             long time = getEventTime().toEpochMilli() / 10000;
+            Date date = new Date(time * 10000);
+            ZonedDateTime utc = OffsetDateTime.from(date.toInstant().atZone(SYSTEM_DEFAULT_ZONE_ID)).atZoneSameInstant(UTC_ZONE_ID);
             fullStackTrace.add(new String[]{
-                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(new Date(time * 10000)) + "_[k]"
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT_DTF.get().format(utc) + " UTC_[k]"
+            });
+            fullStackTrace.add(new String[]{
+                    TIME_STAMP_FORMAT.get().format(time) + "_" + OUTPUT_FORMAT.get().format(date) + " " + SYSTEM_DEFAULT_ZONE_ID +  "_[k]"
             });
         }
         if (additionalLevels.contains(FILENAME)) {
