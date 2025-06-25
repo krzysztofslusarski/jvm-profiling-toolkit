@@ -395,7 +395,7 @@ class JfrParserImpl implements JfrParser {
                 return;
             }
             List<? extends IMCFrame> frames = stackTrace.getFrames();
-            jfrParsedFile.addWallClockSampleEvent(JfrParsedExecutionSampleEvent.builder()
+            final JfrParsedExecutionSampleEvent sampleEvent = JfrParsedExecutionSampleEvent.builder()
                     .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
                     .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
                     .filename(filename)
@@ -404,8 +404,11 @@ class JfrParserImpl implements JfrParser {
                     .stackTrace(getStackTrace(jfrParsedFile, frames))
                     .lineNumbers(getLineNumbers(jfrParsedFile, frames))
                     .samples(accessors.getSamplesAccessor() != null ? accessors.getSamplesAccessor().getMember(event).longValue() : 0L)
-                    .build()
-            );
+                    .build();
+//            if (sampleEvent.stackTraceContains("QueueingClickhouseDao.exec")){
+//            if (sampleEvent.getThreadName().startsWith("ch-congestion-control-pool-")){
+                jfrParsedFile.addWallClockSampleEvent(sampleEvent);
+//            }
         });
     }
 
@@ -499,6 +502,9 @@ class JfrParserImpl implements JfrParser {
                 field = FIELD_MAP.get(frame.getClass());
                 if (field == null) {
                     field = ReflectionUtils.findField(frame.getClass(), "type");
+                    if (field == null) {
+                        return TYPE_JIT_COMPILED;
+                    }
                     field.setAccessible(true);
                     FIELD_MAP.put(frame.getClass(), field);
                 }
