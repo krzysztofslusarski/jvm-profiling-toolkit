@@ -40,6 +40,9 @@ public class StatefulJfrHighChartCpuStats {
         List<HighChartSeries> ret = new ArrayList<>(numberOfSeries);
         for (String filename : filenames) {
             List<JfrParsedCpuUsageEvent> eventsForFile = cpuUsageEventsPerFile.get(filename);
+            if (eventsForFile == null) {
+                continue;
+            }
             Object[][] series = new Object[eventsForFile.size()][];
             int j = 0;
             for (JfrParsedCpuUsageEvent event : eventsForFile) {

@@ -50,6 +50,10 @@ public class JfrParsedFile {
     private final boolean oldAsyncProfiler;
     @Getter
     private final boolean wallClockExactTime;
+    @Getter
+    private final boolean unifyLambdas;
+    @Getter
+    private final boolean throwOnErroredFile;
     private Instant minEventDate;
     private Instant maxEventDate;
 
@@ -97,9 +101,13 @@ public class JfrParsedFile {
         }
     }
 
-    String getCanonicalString(String str) {
-        String canonical = canonicalStrings.putIfAbsent(str, str);
-        return canonical == null ? str : canonical;
+    String getCanonicalString(final JfrParsedFile jfrParsedFile, String str) {
+        String canonical = canonicalStrings.computeIfAbsent(str, aStr -> unifyLambdaAwareString(jfrParsedFile, aStr));
+        return canonical == null ? canonicalStrings.get(str) : canonical;
+    }
+
+    private static String unifyLambdaAwareString(final JfrParsedFile jfrParsedFile, final String aStr) {
+        return jfrParsedFile.isUnifyLambdas() ? aStr.replaceAll("\\.0x................", ".unified") : aStr;
     }
 
     void calculateAggregatedDates() {
