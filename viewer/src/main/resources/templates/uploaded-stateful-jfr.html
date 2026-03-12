@@ -315,6 +315,9 @@
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                 Reload
             </button>
+            <button class="btn-newtab" onclick="clonePage(); return false;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
             <a class="btn-newtab" href="#" id="newTab" target="_blank" style="display:none;">
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
@@ -501,10 +504,67 @@
         updateExternalContent();
     }
 
+    // ---- Clone page ----
+    function clonePage() {
+        var url = window.location.href.split('?')[0] + '?id=' + document.body.getAttribute('data-current');
+        // Encode all current input state as URL hash fragment
+        var state = {};
+        document.querySelectorAll('input[type=checkbox]').forEach(function (el) {
+            if (el.checked) state[el.id] = 'on';
+        });
+        document.querySelectorAll('input[type=text]').forEach(function (el) {
+            if (el.value) state[el.name || el.id] = el.value;
+        });
+        document.querySelectorAll('input[type=radio]:checked').forEach(function (el) {
+            if (el.name && el.id) state['radio_' + el.name] = el.id;
+        });
+        // Count dynamic filter rows
+        state['_stfRows'] = document.querySelectorAll('#stackTraceFilterList .stack-trace-filter-row').length;
+        state['_stncfRows'] = document.querySelectorAll('#stackTraceNotContainsFilterList .stack-trace-filter-row').length;
+        window.open(url + '#' + encodeURIComponent(JSON.stringify(state)), '_blank');
+    }
+
+    function restoreFromHash() {
+        if (!window.location.hash) return;
+        try {
+            var state = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+            // Add extra filter rows first
+            var stfRows = state['_stfRows'] || 1;
+            for (var i = 1; i < stfRows; i++) addFilterRow('stackTraceFilterList', 'stackTraceFilter');
+            var stncfRows = state['_stncfRows'] || 1;
+            for (var i = 1; i < stncfRows; i++) addFilterRow('stackTraceNotContainsFilterList', 'stackTraceNotContainsFilter');
+            // Restore text inputs
+            Object.keys(state).forEach(function (key) {
+                if (key.startsWith('_') || key.startsWith('radio_')) return;
+                if (state[key] === 'on') return;
+                var el = document.querySelector('input[name="' + key + '"]') || document.getElementById(key);
+                if (el && el.type === 'text') el.value = state[key];
+            });
+            // Restore checkboxes
+            Object.keys(state).forEach(function (key) {
+                if (state[key] !== 'on') return;
+                var el = document.getElementById(key);
+                if (el && el.type === 'checkbox') {
+                    el.checked = true;
+                    // Trigger visibility for filter groups
+                    if (el.onchange) el.onchange();
+                }
+            });
+            // Restore radio buttons
+            Object.keys(state).forEach(function (key) {
+                if (!key.startsWith('radio_')) return;
+                var el = document.getElementById(state[key]);
+                if (el) el.checked = true;
+            });
+        } catch (e) { /* ignore malformed hash */ }
+    }
+
     // ---- Init ----
     document.addEventListener('DOMContentLoaded', function () {
+        restoreFromHash();
         enableFlameGraphs();
-        var firstEvent = document.querySelector('#events input[type=radio]');
+        var restoredEvent = document.querySelector('#events input[type=radio]:checked');
+        var firstEvent = restoredEvent || document.querySelector('#events input[type=radio]');
         if (firstEvent) firstEvent.click();
     });
 </script>

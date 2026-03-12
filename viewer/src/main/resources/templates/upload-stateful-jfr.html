@@ -34,9 +34,20 @@
                         <td class="text-mono" style="text-align:left">[[${file.id}]]</td>
                         <td style="text-align:left">[[${file.parseStartDate}]]</td>
                         <td style="text-align:left; white-space: normal; word-break: break-all;">
-                            <span th:each="fileName, fileNameStatus: ${file.filenames}" th:inline="text">
+                            <span th:each="fileName, fileNameStatus: ${file.filenames}" th:inline="text"
+                                  th:class="${fileNameStatus.index >= 5 ? 'extra-file' : ''}"
+                                  th:style="${fileNameStatus.index >= 5 ? 'display:none' : ''}">
                                 [[${fileName}]]<br th:if="${!fileNameStatus.last}"/>
                             </span>
+                            <a th:if="${file.filenames.size() > 5}" href="#"
+                               class="expand-link"
+                               onclick="var td=this.parentElement; td.querySelectorAll('.extra-file').forEach(function(e){e.style.display='';}); this.style.display='none'; td.querySelector('.collapse-link').style.display=''; return false;"
+                               th:text="'... and ' + (${file.filenames.size()} - 5) + ' more'"
+                               style="font-size: 0.8125rem;"></a>
+                            <a th:if="${file.filenames.size() > 5}" href="#"
+                               class="collapse-link"
+                               onclick="var td=this.parentElement; td.querySelectorAll('.extra-file').forEach(function(e){e.style.display='none';}); this.style.display='none'; td.querySelector('.expand-link').style.display=''; return false;"
+                               style="display:none; font-size: 0.8125rem;"><br/>show less</a>
                         </td>
                         <td class="text-center">
                             <a class="btn btn-sm btn-primary" target="_blank" th:href="'/stateful-jfr/single?id=' + ${file.id}">Open</a>
