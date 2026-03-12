@@ -1,6 +1,8 @@
 package pl.ks.viewer;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
@@ -58,13 +60,17 @@ abstract class JfrControllerCommon {
         boolean stackTraceFilterOn = ON.equals(params.get("stackTraceFilterOn"));
         builder.stackTraceFilterOn(stackTraceFilterOn);
         if (stackTraceFilterOn) {
-            builder.stackTraceFilter(params.get("stackTraceFilter"));
+            builder.stackTraceFilters(collectIndexedParams(params, "stackTraceFilter"));
+        } else {
+            builder.stackTraceFilters(List.of());
         }
 
         boolean stackTraceNotContainsFilterOn = ON.equals(params.get("stackTraceNotContainsFilterOn"));
         builder.stackTraceNotContainsFilterOn(stackTraceNotContainsFilterOn);
         if (stackTraceNotContainsFilterOn) {
-            builder.stackTraceNotContainsFilter(params.get("stackTraceNotContainsFilter"));
+            builder.stackTraceNotContainsFilters(collectIndexedParams(params, "stackTraceNotContainsFilter"));
+        } else {
+            builder.stackTraceNotContainsFilters(List.of());
         }
 
         boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
@@ -108,5 +114,19 @@ abstract class JfrControllerCommon {
         builder.tableLimit(tableLimit == null ? 0 : Integer.parseInt(tableLimit));
 
         return builder.build();
+    }
+
+    private static List<String> collectIndexedParams(Map<String, String> params, String prefix) {
+        List<String> result = new ArrayList<>();
+        for (int i = 0; ; i++) {
+            String value = params.get(prefix + "_" + i);
+            if (value == null) {
+                break;
+            }
+            if (!value.isBlank()) {
+                result.add(value);
+            }
+        }
+        return result;
     }
 }

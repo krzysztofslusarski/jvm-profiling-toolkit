@@ -220,8 +220,14 @@
                             </label>
                         </div>
                         <div id="stackTraceFilterContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="stackTraceFilter" name="stackTraceFilter" type="text"/>
+                            <div id="stackTraceFilterList">
+                                <div class="input-field col s12 stack-trace-filter-row">
+                                    <input name="stackTraceFilter_0" type="text" class="stack-trace-filter-input"/>
+                                    <a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, 'stackTraceFilterList')" style="display:none"><i class="material-icons">remove_circle_outline</i></a>
+                                </div>
+                            </div>
+                            <div class="col s12">
+                                <a class="btn-flat btn-small" onclick="addFilterRow('stackTraceFilterList', 'stackTraceFilter')"><i class="material-icons">add_circle_outline</i> Add filter</a>
                             </div>
                         </div>
 
@@ -232,8 +238,14 @@
                             </label>
                         </div>
                         <div id="stackTraceNotContainsFilterContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="stackTraceNotContainsFilter" name="stackTraceNotContainsFilter" type="text"/>
+                            <div id="stackTraceNotContainsFilterList">
+                                <div class="input-field col s12 stack-trace-filter-row">
+                                    <input name="stackTraceNotContainsFilter_0" type="text" class="stack-trace-not-contains-filter-input"/>
+                                    <a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, 'stackTraceNotContainsFilterList')" style="display:none"><i class="material-icons">remove_circle_outline</i></a>
+                                </div>
+                            </div>
+                            <div class="col s12">
+                                <a class="btn-flat btn-small" onclick="addFilterRow('stackTraceNotContainsFilterList', 'stackTraceNotContainsFilter')"><i class="material-icons">add_circle_outline</i> Add filter</a>
                             </div>
                         </div>
 
@@ -463,6 +475,40 @@
             $("#stackTraceNotContainsFilterContent").hide();
         }
     });
+
+    function addFilterRow(listId, prefix) {
+        let list = $("#" + listId);
+        let index = list.children(".stack-trace-filter-row").length;
+        let cssClass = prefix === 'stackTraceFilter' ? 'stack-trace-filter-input' : 'stack-trace-not-contains-filter-input';
+        let row = $('<div class="input-field col s12 stack-trace-filter-row">' +
+            '<input name="' + prefix + '_' + index + '" type="text" class="' + cssClass + '"/>' +
+            '<a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, \'' + listId + '\')"><i class="material-icons">remove_circle_outline</i></a>' +
+            '</div>');
+        list.append(row);
+        updateRemoveButtons(listId);
+    }
+
+    function removeFilterRow(btn, listId) {
+        $(btn).closest(".stack-trace-filter-row").remove();
+        reindexFilterRows(listId);
+        updateRemoveButtons(listId);
+    }
+
+    function reindexFilterRows(listId) {
+        let prefix = listId === 'stackTraceFilterList' ? 'stackTraceFilter' : 'stackTraceNotContainsFilter';
+        $("#" + listId).children(".stack-trace-filter-row").each(function (index) {
+            $(this).find("input[type=text]").attr("name", prefix + "_" + index);
+        });
+    }
+
+    function updateRemoveButtons(listId) {
+        let rows = $("#" + listId).children(".stack-trace-filter-row");
+        if (rows.length <= 1) {
+            rows.find(".remove-filter-btn").hide();
+        } else {
+            rows.find(".remove-filter-btn").show();
+        }
+    }
     $("#startEndTimestampOn").on("change", function () {
         if ($(this).prop('checked')) {
             $("#startEndTimestampContent").show();

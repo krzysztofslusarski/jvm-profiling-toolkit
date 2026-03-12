@@ -282,10 +282,14 @@ class StatefulJfrViewerService {
                 filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getCorrelationId() == config.getEcidFilter());
             }
             if (config.isStackTraceFilterOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceContains(config.getStackTraceFilter()));
+                for (String filter : config.getStackTraceFilters()) {
+                    filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceContains(filter));
+                }
             }
             if (config.isStackTraceNotContainsFilterOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceNotContains(config.getStackTraceNotContainsFilter()));
+                for (String filter : config.getStackTraceNotContainsFilters()) {
+                    filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).stackTraceNotContains(filter));
+                }
             }
         }
 

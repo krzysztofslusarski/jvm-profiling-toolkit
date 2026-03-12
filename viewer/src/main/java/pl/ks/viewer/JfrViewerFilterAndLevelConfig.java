@@ -15,6 +15,7 @@
  */
 package pl.ks.viewer;
 
+import java.util.List;
 import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
@@ -48,7 +49,7 @@ public class JfrViewerFilterAndLevelConfig {
     int tableLimit;
     String localeLanguage;
     boolean stackTraceFilterOn;
-    String stackTraceFilter;
+    List<String> stackTraceFilters;
     boolean stackTraceNotContainsFilterOn;
-    String stackTraceNotContainsFilter;
+    List<String> stackTraceNotContainsFilters;
 }
