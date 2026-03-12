@@ -1,114 +1,59 @@
-<!--
-/*
- * Copyright 2022 Krzysztof Slusarski
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
--->
 <!DOCTYPE HTML>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <link href="/css/upload-materialized.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Collapsed Stack Viewer - Upload</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/app.css" rel="stylesheet">
 </head>
-
 <body>
-
 <div class="container">
-    <div class="row">
-        <div class="col s12 center-align">
-            <h3>Collapsed stack viewer</h3>
-        </div>
+    <div class="page-header">
+        <h1><a href="/" style="color: inherit; text-decoration: none;">Collapsed Stack Viewer</a></h1>
+        <p>Upload collapsed stack files for flame graph analysis</p>
+    </div>
 
-        <div class="col s12">
-            <div class="card">
-                <div class="card-content">
-                    <div class="card-title">
-                        Import from files
-                    </div>
-                    <form method="POST" enctype="multipart/form-data" action="/upload-collapsed" target="_blank">
-                        <div class="row">
-                            <div class="file-field input-field col s6">
-                                <div class="btn">
-                                    <span>File</span>
-                                    <input name="file" type="file">
-                                </div>
-                                <div class="file-path-wrapper">
-                                    <input class="file-path" type="text" placeholder="File to upload">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="file-field input-field col s6">
-                                <button class="btn waves-effect waves-light" type="submit" name="action">
-                                    Submit
-                                </button>
-                            </div>
-                        </div>
+    <div class="card">
+        <div class="card-header">Upload file</div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data" action="/upload-collapsed" target="_blank">
+                <div class="form-group">
+                    <label>Stack trace file</label>
+                    <input name="file" type="file" class="form-input" style="padding: 0.375rem;">
+                </div>
 
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="title" name="title" type="text"/>
-                                <label for="title">
-                                    Title (will be visible at every page -
-                                    useful if there are multiple windows opened)
-                                </label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="totalTimeThreshold" name="totalTimeThreshold" type="text" value="0.001"/>
-                                <label for="totalTimeThreshold">
-                                    Total time threshold (do not show method with total time less than)
-                                </label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="selfTimeThreshold" name="selfTimeThreshold" type="text" value="0.0001"/>
-                                <label for="selfTimeThreshold">
-                                    Self time threshold (do not show method with self time less than)
-                                </label>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <input id="filter" name="filter" type="text"/>
-                                <label for="filter">
-                                    Filter stacks by
-                                </label>
-                            </div>
-                        </div>
-                    </form>
+                <div class="form-group">
+                    <label for="title">Title (visible on every page)</label>
+                    <input id="title" name="title" type="text" class="form-input" placeholder="e.g. Production load test 2024-03-12"/>
                 </div>
-            </div>
-        </div>
-        <div class="col s12">
-            <div class="card">
-                <div class="card-content">
-                    Compress logs <span class="font-weight-bold">(*.zip, *.gz, *.xz, *.7z)</span> for fast uploads. <br>
-                    Author: Krzysztof Ślusarski <br>
-                    Email: ks@gclogs.com
+
+                <div class="form-group">
+                    <label for="totalTimeThreshold">Total time threshold</label>
+                    <input id="totalTimeThreshold" name="totalTimeThreshold" type="text" class="form-input" value="0.001"/>
                 </div>
-            </div>
+
+                <div class="form-group">
+                    <label for="selfTimeThreshold">Self time threshold</label>
+                    <input id="selfTimeThreshold" name="selfTimeThreshold" type="text" class="form-input" value="0.0001"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="filter">Filter stacks by</label>
+                    <input id="filter" name="filter" type="text" class="form-input" placeholder="e.g. com.example.MyClass"/>
+                </div>
+
+                <button class="btn btn-primary" type="submit">Upload &amp; Analyze</button>
+            </form>
         </div>
     </div>
+
+    <div class="footer">
+        Supports compressed files: <strong>*.zip, *.gz, *.xz, *.7z</strong><br>
+        Author: Krzysztof Slusarski &middot; <a href="mailto:ks@gclogs.com">ks@gclogs.com</a>
+    </div>
 </div>
-
-<script type="text/javascript" th:src="@{webjars/jquery/2.2.4/jquery.min.js}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-
 </body>
 </html>

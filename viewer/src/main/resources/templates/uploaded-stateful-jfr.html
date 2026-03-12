@@ -1,706 +1,511 @@
-<!--
-/*
- * Copyright 2022 Krzysztof Slusarski
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
--->
 <!DOCTYPE HTML>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="/css/upload-materialized.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JFR Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/app.css" rel="stylesheet">
 </head>
 
-<body th:data-current="${currentId}">
+<body th:data-current="${currentId}" style="overflow: hidden;">
 
-<div>
-    <div class="row">
-        <div class="col s2">
-            <div class="card">
-                <div class="card-content">
-                    <div class="card-title not-hidden-at-start">
-                        What do you need?
-                    </div>
+<div class="viewer-layout">
+    <!-- ====== SIDEBAR ====== -->
+    <aside class="viewer-sidebar">
+        <div class="sidebar-brand">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            <a href="/upload-stateful-jfr">JFR Viewer</a>
+        </div>
 
-                    <p>
-                        <label>
-                            <input name="page" type="radio" onclick="return enableFlameGraphs()" checked/>
-                            <span>Flame graphs</span>
-                        </label>
-                    </p>
-                    <p>
-                        <label>
-                            <input name="page" type="radio" onclick="return enableTotalTimeTable()"/>
-                            <span>Total time table</span>
-                        </label>
-                    </p>
-                    <p>
-                        <label>
-                            <input class="with-gap" name="page" type="radio" onclick="return enableSelfTimeTable()"/>
-                            <span>Self time table</span>
-                        </label>
-                    </p>
-                    <p>
-                        <label>
-                            <input name="page" type="radio" onclick="return enableCorrelationId()"/>
-                            <span>Correlation ID stats</span>
-                        </label>
-                    </p>
-                    <p>
-                        <label>
-                            <input name="page" type="radio" onclick="return enableCpu()"/>
-                            <span>CPU stats</span>
-                        </label>
-                    </p>
-                    <p class="right-align">
-                        <a class="waves-effect waves-light btn-small" href="#" style="display:none;" target="_blank" id="newTab">
-                            <i class="material-icons left">open_in_new</i>Open in new tab
-                        </a>
-                    </p>
-                </div>
+        <!-- View Mode -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">View</div>
+            <div class="radio-row">
+                <input name="page" type="radio" id="pageFlames" onclick="return enableFlameGraphs()" checked/>
+                <label for="pageFlames">Flame graphs</label>
             </div>
-
-            <div class="card">
-                <div class="card-content" id="events">
-                    <div class="card-title">
-                        Available events
-                    </div>
-
-                    <p th:if="${file.getExecutionSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/execution?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/execution?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/execution?id=' + ${currentId}"
-                            />
-                            <span>Execution samples</span>
-                        </label>
-                    </p>
-                    <p th:if="${file.getWallClockSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/wall?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/wall?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/wall?id=' + ${currentId}"
-                            />
-                            <span>Wall-clock samples</span>
-                        </label>
-                    </p>
-                    <p th:if="${file.getAllocationSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/count?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/count?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/allocation/count?id=' + ${currentId}"
-                            />
-                            <span>Alloc. samples (count)</span>
-                        </label>
-                    </p>
-                    <p th:if="${file.getAllocationSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/size?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/size?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/allocation/size?id=' + ${currentId}"
-                            />
-                            <span>Alloc. samples (size)</span>
-                        </label>
-                    </p>
-                    <p th:if="${file.getLockSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/count?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/count?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/lock/count?id=' + ${currentId}"
-                            />
-                            <span>Lock samples (count)</span>
-                        </label>
-                    </p>
-                    <p th:if="${file.getLockSamples().size() > 0}">
-                        <label>
-                            <input name="event" type="radio"
-                                   onclick="return updatePages(this)"
-                                   th:data-current="${currentId}"
-                                   th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/time?id=' + ${currentId}"
-                                   th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/time?id=' + ${currentId}"
-                                   th:data-flames-url="'/stateful-jfr/single/flames/lock/time?id=' + ${currentId}"
-                            />
-                            <span>Lock samples (time)</span>
-                        </label>
-                    </p>
-                </div>
+            <div class="radio-row">
+                <input name="page" type="radio" id="pageTotalTime" onclick="return enableTotalTimeTable()"/>
+                <label for="pageTotalTime">Total time table</label>
             </div>
-
-            <div class="card" id="additionalOptionsContainer">
-                <div class="card-content">
-                    <div class="card-title">
-                        Additional options
-                    </div>
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <input id="tableLimit" name="tableLimit" type="text" value="10000"/>
-                            <label for="tableLimit">Table limit</label>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="reverseOn" name="reverseOn" type="checkbox"/>
-                                <span>Reverse flame graph</span>
-                            </label>
-                        </div>
-                    </div>
-                    <p class="right-align">
-                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
-                            <i class="material-icons left">replay</i>reload
-                        </a>
-                    </p>
-                </div>
+            <div class="radio-row">
+                <input name="page" type="radio" id="pageSelfTime" onclick="return enableSelfTimeTable()"/>
+                <label for="pageSelfTime">Self time table</label>
             </div>
-
-            <div class="card" id="additionalFiltersContainer">
-                <div class="card-content">
-                    <div class="card-title">
-                        Additional filters
-                    </div>
-
-                    <div class="row">
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="threadFilterOn" name="threadFilterOn" type="checkbox"/>
-                                <span>Thread filter (equals)</span>
-                            </label>
-                        </div>
-                        <div id="threadFilterContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="threadFilter" name="threadFilter" type="text"/>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="threadFilterContainsOn" name="threadFilterContainsOn" type="checkbox"/>
-                                <span>Thread filter (contains)</span>
-                            </label>
-                        </div>
-                        <div id="threadFilterContainsContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="threadFilterContains" name="threadFilterContains" type="text"/>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="stackTraceFilterOn" name="stackTraceFilterOn" type="checkbox"/>
-                                <span>Stack trace filter (contains)</span>
-                            </label>
-                        </div>
-                        <div id="stackTraceFilterContent" style="display: none">
-                            <div id="stackTraceFilterList">
-                                <div class="input-field col s12 stack-trace-filter-row">
-                                    <input name="stackTraceFilter_0" type="text" class="stack-trace-filter-input"/>
-                                    <a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, 'stackTraceFilterList')" style="display:none"><i class="material-icons">remove_circle_outline</i></a>
-                                </div>
-                            </div>
-                            <div class="col s12">
-                                <a class="btn-flat btn-small" onclick="addFilterRow('stackTraceFilterList', 'stackTraceFilter')"><i class="material-icons">add_circle_outline</i> Add filter</a>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="stackTraceNotContainsFilterOn" name="stackTraceNotContainsFilterOn" type="checkbox"/>
-                                <span>Stack trace filter (not contains)</span>
-                            </label>
-                        </div>
-                        <div id="stackTraceNotContainsFilterContent" style="display: none">
-                            <div id="stackTraceNotContainsFilterList">
-                                <div class="input-field col s12 stack-trace-filter-row">
-                                    <input name="stackTraceNotContainsFilter_0" type="text" class="stack-trace-not-contains-filter-input"/>
-                                    <a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, 'stackTraceNotContainsFilterList')" style="display:none"><i class="material-icons">remove_circle_outline</i></a>
-                                </div>
-                            </div>
-                            <div class="col s12">
-                                <a class="btn-flat btn-small" onclick="addFilterRow('stackTraceNotContainsFilterList', 'stackTraceNotContainsFilter')"><i class="material-icons">add_circle_outline</i> Add filter</a>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox"/>
-                                <span>Correlation id filter</span>
-                            </label>
-                        </div>
-                        <div id="ecidFilterContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="ecidFilter" name="ecidFilter" type="text"/>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="endDurationOn" name="endDurationOn" type="checkbox"/>
-                                <span>Access log filter</span>
-                            </label>
-                        </div>
-                        <div id="endDurationContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="endDate" name="endDate" type="text"/>
-                                <label for="endDate">End date</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text"
-                                       value="dd/MMM/yyyy:HH:mm:ss Z"/>
-                                <label for="endDateDateTimeFormat">End date format</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="duration" name="duration" type="text"/>
-                                <label for="duration">Duration (ms)</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="localeLanguage" name="localeLanguage" type="text" value="EN"/>
-                                <label for="localeLanguage">Locale language</label>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox"/>
-                                <span>Start/end timestamp filter</span>
-                            </label>
-                        </div>
-                        <div id="startEndTimestampContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="startTs" name="startTs" type="text"/>
-                                <label for="startTs">Start timestamp (s)</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="endTs" name="endTs" type="text"/>
-                                <label for="endTs">End timestamp (s)</label>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox"/>
-                                <span>Warmup/cooldown filter</span>
-                            </label>
-                        </div>
-                        <div id="warmupCooldownContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="warmup" name="warmup" type="text"/>
-                                <label for="warmup">Warmup (s)</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="cooldown" name="cooldown" type="text"/>
-                                <label for="cooldown">Cooldown (s)</label>
-                            </div>
-                        </div>
-
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox"/>
-                                <span>Warmup/duration filter</span>
-                            </label>
-                        </div>
-                        <div id="warmupDurationContent" style="display: none">
-                            <div class="input-field col s12">
-                                <input id="wdWarmup" name="wdWarmup" type="text"/>
-                                <label for="wdWarmup">Warmup (s)</label>
-                            </div>
-                            <div class="input-field col s12">
-                                <input id="wdDuration" name="wdDuration" type="text"/>
-                                <label for="wdDuration">Duration (s)</label>
-                            </div>
-                        </div>
-                        <div class="input-field col s12">
-                            <label>
-                                <input id="consumeCpuOn" name="consumeCpuOn" type="checkbox"/>
-                                <span>Consume CPU</span>
-                            </label>
-                        </div>
-                    </div>
-                    <p class="right-align">
-                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
-                            <i class="material-icons left">replay</i>reload
-                        </a>
-                    </p>
-                </div>
+            <div class="radio-row">
+                <input name="page" type="radio" id="pageCorrId" onclick="return enableCorrelationId()"/>
+                <label for="pageCorrId">Correlation ID stats</label>
             </div>
-
-            <div class="card">
-                <div class="card-content">
-                    <div class="card-title">
-                        Additional levels
-                    </div>
-
-                    <div>
-                        <div class="row">
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractThreads" name="extractThreads"
-                                           type="checkbox"/>
-                                    <span>Thread</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractTs10S" name="extractTs10S"
-                                           type="checkbox"/>
-                                    <span>Timestamp (10s window)</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractTs1S" name="extractTs1S"
-                                           type="checkbox"/>
-                                    <span>Timestamp (1s window)</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms"
-                                           type="checkbox"/>
-                                    <span>Timestamp (100ms window)</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractFilename" name="extractFilename"
-                                           type="checkbox"/>
-                                    <span>Filename</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractEcid" name="extractEcid"
-                                           type="checkbox"/>
-                                    <span>Correlation ID</span>
-                                </label>
-                            </div>
-                            <div class="input-field col s12">
-                                <label>
-                                    <input class="additional-level" id="extractLineNumbers" name="extractLineNumbers"
-                                           type="checkbox"/>
-                                    <span>Line numbers</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="right-align">
-                        <a class="waves-effect waves-light btn-small" onclick="return updatePages()">
-                            <i class="material-icons left">replay</i>reload
-                        </a>
-                    </p>
-                </div>
+            <div class="radio-row">
+                <input name="page" type="radio" id="pageCpu" onclick="return enableCpu()"/>
+                <label for="pageCpu">CPU stats</label>
             </div>
+        </div>
 
-            <div class="card">
-                <div class="card-content">
-                    Author: Krzysztof Ślusarski <br>
-                    Email: ks@gclogs.com
+        <!-- Events -->
+        <div class="sidebar-section" id="events">
+            <div class="sidebar-section-title">Events</div>
+
+            <div th:if="${file.getExecutionSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/execution?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/execution?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/execution?id=' + ${currentId}"
+                       id="eventExec"/>
+                <label for="eventExec">Execution samples</label>
+            </div>
+            <div th:if="${file.getWallClockSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/wall?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/wall?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/wall?id=' + ${currentId}"
+                       id="eventWall"/>
+                <label for="eventWall">Wall-clock samples</label>
+            </div>
+            <div th:if="${file.getAllocationSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/count?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/count?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/allocation/count?id=' + ${currentId}"
+                       id="eventAllocCount"/>
+                <label for="eventAllocCount">Alloc. samples (count)</label>
+            </div>
+            <div th:if="${file.getAllocationSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/allocation/size?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/allocation/size?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/allocation/size?id=' + ${currentId}"
+                       id="eventAllocSize"/>
+                <label for="eventAllocSize">Alloc. samples (size)</label>
+            </div>
+            <div th:if="${file.getLockSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/count?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/count?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/lock/count?id=' + ${currentId}"
+                       id="eventLockCount"/>
+                <label for="eventLockCount">Lock samples (count)</label>
+            </div>
+            <div th:if="${file.getLockSamples().size() > 0}" class="radio-row">
+                <input name="event" type="radio"
+                       onclick="return updatePages(this)"
+                       th:data-current="${currentId}"
+                       th:data-total-time-table-url="'/stateful-jfr/single/table/total/lock/time?id=' + ${currentId}"
+                       th:data-self-time-table-url="'/stateful-jfr/single/table/self/lock/time?id=' + ${currentId}"
+                       th:data-flames-url="'/stateful-jfr/single/flames/lock/time?id=' + ${currentId}"
+                       id="eventLockTime"/>
+                <label for="eventLockTime">Lock samples (time)</label>
+            </div>
+        </div>
+
+        <!-- Options -->
+        <div class="sidebar-section" id="additionalOptionsContainer">
+            <div class="sidebar-section-title" onclick="toggleSection(this)">
+                Options
+                <svg class="chevron" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="section-body">
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="color: var(--text-sidebar-heading); font-size: 0.75rem;">Table limit</label>
+                    <input id="tableLimit" name="tableLimit" type="text" value="10000"/>
+                </div>
+                <div class="checkbox-row">
+                    <input id="reverseOn" name="reverseOn" type="checkbox"/>
+                    <label for="reverseOn">Reverse flame graph</label>
                 </div>
             </div>
         </div>
 
-        <div class="col s10">
-            <div class="card">
-                <div class="card-content iframe-wrapper">
-                    <iframe id="externalContent"></iframe>
+        <!-- Filters -->
+        <div class="sidebar-section" id="additionalFiltersContainer">
+            <div class="sidebar-section-title" onclick="toggleSection(this)">
+                Filters
+                <svg class="chevron" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="section-body">
+                <!-- Thread filter (equals) -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="threadFilterOn" name="threadFilterOn" type="checkbox" onchange="toggleFilter('threadFilterContent', this)"/>
+                        <label for="threadFilterOn">Thread (equals)</label>
+                    </div>
+                    <div id="threadFilterContent" class="filter-inputs">
+                        <input id="threadFilter" name="threadFilter" type="text" placeholder="Thread name"/>
+                    </div>
+                </div>
+
+                <!-- Thread filter (contains) -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="threadFilterContainsOn" name="threadFilterContainsOn" type="checkbox" onchange="toggleFilter('threadFilterContainsContent', this)"/>
+                        <label for="threadFilterContainsOn">Thread (contains)</label>
+                    </div>
+                    <div id="threadFilterContainsContent" class="filter-inputs">
+                        <input id="threadFilterContains" name="threadFilterContains" type="text" placeholder="Thread name part"/>
+                    </div>
+                </div>
+
+                <!-- Stack trace filter (contains) - multiple -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="stackTraceFilterOn" name="stackTraceFilterOn" type="checkbox" onchange="toggleFilter('stackTraceFilterContent', this)"/>
+                        <label for="stackTraceFilterOn">Stack trace (contains)</label>
+                    </div>
+                    <div id="stackTraceFilterContent" class="filter-inputs">
+                        <div id="stackTraceFilterList">
+                            <div class="filter-row stack-trace-filter-row">
+                                <input name="stackTraceFilter_0" type="text" class="stack-trace-filter-input" placeholder="e.g. com.example"/>
+                                <button class="btn-remove-filter" onclick="removeFilterRow(this, 'stackTraceFilterList')" style="display:none">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn-add-filter" onclick="addFilterRow('stackTraceFilterList', 'stackTraceFilter')">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add filter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stack trace filter (not contains) - multiple -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="stackTraceNotContainsFilterOn" name="stackTraceNotContainsFilterOn" type="checkbox" onchange="toggleFilter('stackTraceNotContainsFilterContent', this)"/>
+                        <label for="stackTraceNotContainsFilterOn">Stack trace (not contains)</label>
+                    </div>
+                    <div id="stackTraceNotContainsFilterContent" class="filter-inputs">
+                        <div id="stackTraceNotContainsFilterList">
+                            <div class="filter-row stack-trace-filter-row">
+                                <input name="stackTraceNotContainsFilter_0" type="text" class="stack-trace-not-contains-filter-input" placeholder="e.g. sun.misc"/>
+                                <button class="btn-remove-filter" onclick="removeFilterRow(this, 'stackTraceNotContainsFilterList')" style="display:none">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn-add-filter" onclick="addFilterRow('stackTraceNotContainsFilterList', 'stackTraceNotContainsFilter')">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add filter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Correlation ID -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox" onchange="toggleFilter('ecidFilterContent', this)"/>
+                        <label for="ecidFilterOn">Correlation ID</label>
+                    </div>
+                    <div id="ecidFilterContent" class="filter-inputs">
+                        <input id="ecidFilter" name="ecidFilter" type="text" placeholder="Correlation ID"/>
+                    </div>
+                </div>
+
+                <!-- Access log filter -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="endDurationOn" name="endDurationOn" type="checkbox" onchange="toggleTimeFilter('endDurationContent', this)"/>
+                        <label for="endDurationOn">Access log filter</label>
+                    </div>
+                    <div id="endDurationContent" class="filter-inputs">
+                        <input id="endDate" name="endDate" type="text" placeholder="End date"/>
+                        <input id="endDateDateTimeFormat" name="endDateDateTimeFormat" type="text" value="dd/MMM/yyyy:HH:mm:ss Z" placeholder="Date format" style="margin-top: 0.375rem"/>
+                        <input id="duration" name="duration" type="text" placeholder="Duration (ms)" style="margin-top: 0.375rem"/>
+                        <input id="localeLanguage" name="localeLanguage" type="text" value="EN" placeholder="Locale" style="margin-top: 0.375rem"/>
+                    </div>
+                </div>
+
+                <!-- Start/end timestamp -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="startEndTimestampOn" name="startEndTimestampOn" type="checkbox" onchange="toggleTimeFilter('startEndTimestampContent', this)"/>
+                        <label for="startEndTimestampOn">Start/end timestamp</label>
+                    </div>
+                    <div id="startEndTimestampContent" class="filter-inputs">
+                        <input id="startTs" name="startTs" type="text" placeholder="Start timestamp (s)"/>
+                        <input id="endTs" name="endTs" type="text" placeholder="End timestamp (s)" style="margin-top: 0.375rem"/>
+                    </div>
+                </div>
+
+                <!-- Warmup/cooldown -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="warmupCooldownOn" name="warmupCooldownOn" type="checkbox" onchange="toggleTimeFilter('warmupCooldownContent', this)"/>
+                        <label for="warmupCooldownOn">Warmup / cooldown</label>
+                    </div>
+                    <div id="warmupCooldownContent" class="filter-inputs">
+                        <input id="warmup" name="warmup" type="text" placeholder="Warmup (s)"/>
+                        <input id="cooldown" name="cooldown" type="text" placeholder="Cooldown (s)" style="margin-top: 0.375rem"/>
+                    </div>
+                </div>
+
+                <!-- Warmup/duration -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="warmupDurationOn" name="warmupDurationOn" type="checkbox" onchange="toggleTimeFilter('warmupDurationContent', this)"/>
+                        <label for="warmupDurationOn">Warmup / duration</label>
+                    </div>
+                    <div id="warmupDurationContent" class="filter-inputs">
+                        <input id="wdWarmup" name="wdWarmup" type="text" placeholder="Warmup (s)"/>
+                        <input id="wdDuration" name="wdDuration" type="text" placeholder="Duration (s)" style="margin-top: 0.375rem"/>
+                    </div>
+                </div>
+
+                <!-- Consume CPU -->
+                <div class="checkbox-row">
+                    <input id="consumeCpuOn" name="consumeCpuOn" type="checkbox"/>
+                    <label for="consumeCpuOn">Consume CPU only</label>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- Additional Levels -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title" onclick="toggleSection(this)">
+                Additional Levels
+                <svg class="chevron" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="section-body">
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractThreads" name="extractThreads" type="checkbox"/>
+                    <label for="extractThreads">Thread</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractTs10S" name="extractTs10S" type="checkbox"/>
+                    <label for="extractTs10S">Timestamp (10s)</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractTs1S" name="extractTs1S" type="checkbox"/>
+                    <label for="extractTs1S">Timestamp (1s)</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractTs100Ms" name="extractTs100Ms" type="checkbox"/>
+                    <label for="extractTs100Ms">Timestamp (100ms)</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractFilename" name="extractFilename" type="checkbox"/>
+                    <label for="extractFilename">Filename</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractEcid" name="extractEcid" type="checkbox"/>
+                    <label for="extractEcid">Correlation ID</label>
+                </div>
+                <div class="checkbox-row">
+                    <input class="additional-level" id="extractLineNumbers" name="extractLineNumbers" type="checkbox"/>
+                    <label for="extractLineNumbers">Line numbers</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="sidebar-actions">
+            <button class="btn-reload" onclick="return updatePages()">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Reload
+            </button>
+            <a class="btn-newtab" href="#" id="newTab" target="_blank" style="display:none;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+        </div>
+    </aside>
+
+    <!-- ====== MAIN CONTENT ====== -->
+    <main class="viewer-content">
+        <iframe id="externalContent"></iframe>
+    </main>
 </div>
 
-<script type="text/javascript" th:src="'/' + @{webjars/jquery/2.2.4/jquery.min.js}"></script>
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 <script type="text/javascript">
-    $("#threadFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#threadFilterContent").show();
-        } else {
-            $("#threadFilterContent").hide();
-        }
-    });
-    $("#threadFilterContainsOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#threadFilterContainsContent").show();
-        } else {
-            $("#threadFilterContainsContent").hide();
-        }
-    });
-    $("#ecidFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#ecidFilterContent").show();
-        } else {
-            $("#ecidFilterContent").hide();
-        }
-    });
-    $("#stackTraceFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#stackTraceFilterContent").show();
-        } else {
-            $("#stackTraceFilterContent").hide();
-        }
-    });
-    $("#stackTraceNotContainsFilterOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#stackTraceNotContainsFilterContent").show();
-        } else {
-            $("#stackTraceNotContainsFilterContent").hide();
-        }
-    });
+    // ---- Toggle helpers ----
+    function toggleSection(titleEl) {
+        titleEl.classList.toggle('collapsed');
+        var body = titleEl.nextElementSibling;
+        if (body) body.style.display = body.style.display === 'none' ? '' : 'none';
+    }
 
+    function toggleFilter(contentId, checkbox) {
+        var el = document.getElementById(contentId);
+        if (el) el.classList.toggle('visible', checkbox.checked);
+    }
+
+    var timeFilterIds = ['endDurationContent', 'startEndTimestampContent', 'warmupCooldownContent', 'warmupDurationContent'];
+    var timeCheckboxIds = ['endDurationOn', 'startEndTimestampOn', 'warmupCooldownOn', 'warmupDurationOn'];
+
+    function toggleTimeFilter(contentId, checkbox) {
+        // Time filters are mutually exclusive
+        timeFilterIds.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.remove('visible');
+        });
+        timeCheckboxIds.forEach(function (id) {
+            var cb = document.getElementById(id);
+            if (cb && cb !== checkbox) cb.checked = false;
+        });
+        if (checkbox.checked) {
+            var el = document.getElementById(contentId);
+            if (el) el.classList.add('visible');
+        }
+    }
+
+    // ---- Multi-filter rows ----
     function addFilterRow(listId, prefix) {
-        let list = $("#" + listId);
-        let index = list.children(".stack-trace-filter-row").length;
-        let cssClass = prefix === 'stackTraceFilter' ? 'stack-trace-filter-input' : 'stack-trace-not-contains-filter-input';
-        let row = $('<div class="input-field col s12 stack-trace-filter-row">' +
-            '<input name="' + prefix + '_' + index + '" type="text" class="' + cssClass + '"/>' +
-            '<a class="btn-flat btn-small remove-filter-btn" onclick="removeFilterRow(this, \'' + listId + '\')"><i class="material-icons">remove_circle_outline</i></a>' +
-            '</div>');
-        list.append(row);
+        var list = document.getElementById(listId);
+        var rows = list.querySelectorAll('.stack-trace-filter-row');
+        var index = rows.length;
+        var div = document.createElement('div');
+        div.className = 'filter-row stack-trace-filter-row';
+        div.innerHTML = '<input name="' + prefix + '_' + index + '" type="text" placeholder="e.g. com.example"/>' +
+            '<button class="btn-remove-filter" onclick="removeFilterRow(this, \'' + listId + '\')">' +
+            '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+        list.appendChild(div);
         updateRemoveButtons(listId);
     }
 
     function removeFilterRow(btn, listId) {
-        $(btn).closest(".stack-trace-filter-row").remove();
+        btn.closest('.stack-trace-filter-row').remove();
         reindexFilterRows(listId);
         updateRemoveButtons(listId);
     }
 
     function reindexFilterRows(listId) {
-        let prefix = listId === 'stackTraceFilterList' ? 'stackTraceFilter' : 'stackTraceNotContainsFilter';
-        $("#" + listId).children(".stack-trace-filter-row").each(function (index) {
-            $(this).find("input[type=text]").attr("name", prefix + "_" + index);
+        var prefix = listId === 'stackTraceFilterList' ? 'stackTraceFilter' : 'stackTraceNotContainsFilter';
+        var rows = document.querySelectorAll('#' + listId + ' .stack-trace-filter-row');
+        rows.forEach(function (row, index) {
+            var input = row.querySelector('input[type=text]');
+            if (input) input.name = prefix + '_' + index;
         });
     }
 
     function updateRemoveButtons(listId) {
-        let rows = $("#" + listId).children(".stack-trace-filter-row");
-        if (rows.length <= 1) {
-            rows.find(".remove-filter-btn").hide();
-        } else {
-            rows.find(".remove-filter-btn").show();
-        }
+        var rows = document.querySelectorAll('#' + listId + ' .stack-trace-filter-row');
+        rows.forEach(function (row) {
+            var btn = row.querySelector('.btn-remove-filter');
+            if (btn) btn.style.display = rows.length <= 1 ? 'none' : '';
+        });
     }
-    $("#startEndTimestampOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#startEndTimestampContent").show();
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#warmupCooldownContent").hide();
-            $("#warmupDurationContent").hide();
-            $("#endDurationContent").hide();
-        } else {
-            $("#startEndTimestampContent").hide();
-        }
-    });
-    $("#endDurationOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#endDurationContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#warmupCooldownContent").hide();
-            $("#warmupDurationContent").hide();
-        } else {
-            $("#endDurationContent").hide();
-        }
-    });
-    $("#warmupCooldownOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#warmupCooldownContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupDurationOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#endDurationContent").hide();
-            $("#warmupDurationContent").hide();
-        } else {
-            $("#warmupCooldownContent").hide();
-        }
-    });
-    $("#warmupDurationOn").on("change", function () {
-        if ($(this).prop('checked')) {
-            $("#warmupDurationContent").show();
-            $("#startEndTimestampOn").prop("checked", false);
-            $("#endDurationOn").prop("checked", false);
-            $("#warmupCooldownOn").prop("checked", false);
-            $("#startEndTimestampContent").hide();
-            $("#endDurationContent").hide();
-            $("#warmupCooldownContent").hide();
-        } else {
-            $("#warmupDurationContent").hide();
-        }
-    });
+
+    // ---- Page/view switching ----
+    var externalContent = document.getElementById('externalContent');
+    var newTabBtn = document.getElementById('newTab');
+    var currentToShow = 'flameGraphUrl';
+    var storedUrls = {};
 
     function enableFlameGraphs() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        externalContent.show();
-        newTabButton.show();
-        externalContent.data("toShow", "flameGraphUrl");
+        externalContent.style.display = '';
+        newTabBtn.style.display = '';
+        currentToShow = 'flameGraphUrl';
         updateExternalContent();
     }
-
     function enableTotalTimeTable() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        externalContent.show();
-        newTabButton.show();
-        externalContent.data("toShow", "totalTimeTableUrl");
+        externalContent.style.display = '';
+        newTabBtn.style.display = '';
+        currentToShow = 'totalTimeTableUrl';
         updateExternalContent();
     }
-
     function enableSelfTimeTable() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        externalContent.show();
-        newTabButton.show();
-        externalContent.data("toShow", "selfTimeTableUrl");
+        externalContent.style.display = '';
+        newTabBtn.style.display = '';
+        currentToShow = 'selfTimeTableUrl';
         updateExternalContent();
     }
-
     function enableCorrelationId() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        externalContent.show();
-        newTabButton.show();
-        externalContent.data("toShow", "correlationIdStatsUrl");
+        externalContent.style.display = '';
+        newTabBtn.style.display = '';
+        currentToShow = 'correlationIdStatsUrl';
         updateExternalContent();
     }
-
     function enableCpu() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        externalContent.show();
-        newTabButton.show();
-        externalContent.data("toShow", "cpuStatsUrl");
+        externalContent.style.display = '';
+        newTabBtn.style.display = '';
+        currentToShow = 'cpuStatsUrl';
         updateNotEventDependentPages();
         updateExternalContent();
     }
 
     function updateExternalContent() {
-        let externalContent = $("#externalContent");
-        let newTabButton = $("#newTab");
-        let toShow = externalContent.data("toShow");
-        if (toShow !== undefined) {
-            let newSrc = externalContent.data(toShow);
-            console.log(newSrc);
-            if (newSrc !== undefined) {
-                externalContent.attr("src", newSrc);
-                newTabButton.attr("href", newSrc);
-            }
+        var url = storedUrls[currentToShow];
+        if (url) {
+            externalContent.src = url;
+            newTabBtn.href = url;
         }
+    }
+
+    function collectParams() {
+        var params = '';
+        // Checked checkboxes in filters
+        document.querySelectorAll('#additionalFiltersContainer input[type=checkbox]:checked').forEach(function (el) {
+            params += '&' + el.name + '=on';
+        });
+        // Text inputs in filters
+        document.querySelectorAll('#additionalFiltersContainer input[type=text]').forEach(function (el) {
+            params += '&' + el.name + '=' + encodeURIComponent(el.value);
+        });
+        // Checked checkboxes in options
+        document.querySelectorAll('#additionalOptionsContainer input[type=checkbox]:checked').forEach(function (el) {
+            params += '&' + el.name + '=on';
+        });
+        // Additional levels
+        document.querySelectorAll('.additional-level:checked').forEach(function (el) {
+            params += '&' + el.name + '=on';
+        });
+        return params;
     }
 
     function updateNotEventDependentPages() {
-        let cpuStatsUrl = "/stateful-jfr/single/cpu-stats?id=" + $("body").data("current");
-        $("#additionalFiltersContainer").find("input:checked").each(function (index) {
-            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=on"
-        });
-        $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
-            cpuStatsUrl = cpuStatsUrl + "&" + $(this).attr("name") + "=" + encodeURIComponent($(this).val());
-        });
-
-        let externalContent = $("#externalContent");
-        externalContent.data("cpuStatsUrl", cpuStatsUrl);
-        updateExternalContent();
-        return false;
+        var cpuStatsUrl = '/stateful-jfr/single/cpu-stats?id=' + document.body.getAttribute('data-current');
+        cpuStatsUrl += collectParams();
+        storedUrls['cpuStatsUrl'] = cpuStatsUrl;
     }
 
-    let lastPressed = undefined;
+    var lastPressed = undefined;
 
     function updatePages(pressed) {
-        if (!pressed) {
-            console.log("using last pressed")
-            pressed = lastPressed;
-        } else {
-            console.log("using pressed")
-            lastPressed = pressed;
-        }
-        updateNotEventDependentPages();
-        let flameGraphUrl = $(pressed).data("flamesUrl");
-        let totalTimeTableUrl = $(pressed).data("totalTimeTableUrl");
-        let selfTimeTableUrl = $(pressed).data("selfTimeTableUrl");
-        let correlationIdStatsUrl = "/stateful-jfr/single/correlation-id-stats?id=" + $(pressed).data("current");
-        $(".additional-level:checked").each(function (index) {
-            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
-        });
-        $("#additionalOptionsContainer").find("input:checked").each(function (index) {
-            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
-        });
-        $("#tableLimit").each(function (index) {
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + $(this).val();
-        });
-        $("#additionalFiltersContainer").find("input:checked").each(function (index) {
-            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=on"
-            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=on"
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=on"
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=on"
-        });
-        $("#additionalFiltersContainer").find("input[type=text]").each(function (index) {
-            let val = encodeURIComponent($(this).val());
-            flameGraphUrl = flameGraphUrl + "&" + $(this).attr("name") + "=" + val;
-            correlationIdStatsUrl = correlationIdStatsUrl + "&" + $(this).attr("name") + "=" + val;
-            totalTimeTableUrl = totalTimeTableUrl + "&" + $(this).attr("name") + "=" + val;
-            selfTimeTableUrl = selfTimeTableUrl + "&" + $(this).attr("name") + "=" + val;
-        });
+        if (!pressed) pressed = lastPressed;
+        else lastPressed = pressed;
+        if (!pressed) return;
 
-        let externalContent = $("#externalContent");
-        externalContent.data("flameGraphUrl", flameGraphUrl);
-        externalContent.data("totalTimeTableUrl", totalTimeTableUrl);
-        externalContent.data("selfTimeTableUrl", selfTimeTableUrl);
-        externalContent.data("correlationIdStatsUrl", correlationIdStatsUrl);
+        updateNotEventDependentPages();
+
+        var flameGraphUrl = pressed.getAttribute('data-flames-url');
+        var totalTimeTableUrl = pressed.getAttribute('data-total-time-table-url');
+        var selfTimeTableUrl = pressed.getAttribute('data-self-time-table-url');
+        var correlationIdStatsUrl = '/stateful-jfr/single/correlation-id-stats?id=' + pressed.getAttribute('data-current');
+
+        var params = collectParams();
+        // Table limit
+        var tableLimit = document.getElementById('tableLimit');
+        var tableLimitParam = '&tableLimit=' + tableLimit.value;
+
+        flameGraphUrl += params;
+        totalTimeTableUrl += params + tableLimitParam;
+        selfTimeTableUrl += params + tableLimitParam;
+        correlationIdStatsUrl += params;
+
+        storedUrls['flameGraphUrl'] = flameGraphUrl;
+        storedUrls['totalTimeTableUrl'] = totalTimeTableUrl;
+        storedUrls['selfTimeTableUrl'] = selfTimeTableUrl;
+        storedUrls['correlationIdStatsUrl'] = correlationIdStatsUrl;
+
         updateExternalContent();
     }
 
-    $(document).ready(function () {
+    // ---- Init ----
+    document.addEventListener('DOMContentLoaded', function () {
         enableFlameGraphs();
-        $("#events").find("input").first().click();
-        $(".card-title").on("click", function () {
-            $(this).siblings().each(function (index) {
-                $(this).toggle();
-            });
-        });
-        $(".card-title").not(".not-hidden-at-start").each(function (index) {
-            $(this).siblings().each(function (subIndex) {
-                $(this).toggle();
-            });
-        });
+        var firstEvent = document.querySelector('#events input[type=radio]');
+        if (firstEvent) firstEvent.click();
     });
 </script>
 </body>
