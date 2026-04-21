@@ -7,31 +7,80 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="/css/app.css" rel="stylesheet">
+    <script src="/js/theme.js"></script>
     <script src="/js/highcharts/highcharts.src.js"></script>
     <script src="/js/highcharts/boost.js"></script>
     <script src="/js/highcharts/exporting.js"></script>
 </head>
-<body style="background: #fff;">
+<body>
 
 <script type="text/javascript">
     function commonHighChartsLineChartsOptions(xAxisLabel, yAxisLabel) {
+        var isDark = document.documentElement.classList.contains('dark');
+        var textColor = isDark ? '#cbd5e1' : '#0f172a';
+        var mutedColor = isDark ? '#94a3b8' : '#64748b';
+        var gridColor = isDark ? '#334155' : '#e2e8f0';
         return {
             title: { text: '' },
             chart: {
                 height: Math.min(window.innerHeight * 0.55, 500),
                 zoomType: 'x',
-                style: { fontFamily: 'Inter, system-ui, sans-serif' }
+                backgroundColor: 'transparent',
+                style: { fontFamily: 'Inter, system-ui, sans-serif', color: textColor }
             },
             colors: ['#4f46e5', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#ec4899'],
             tooltip: { pointFormat: '{series.name}: <b>{point.y}</b><br/>' },
-            legend: { align: 'left', verticalAlign: 'top', borderWidth: 0 },
+            legend: {
+                align: 'left', verticalAlign: 'top', borderWidth: 0,
+                itemStyle: { color: textColor }, itemHoverStyle: { color: textColor }
+            },
             plotOptions: {
                 series: { label: { connectorAllowed: false } },
                 scatter: { marker: { radius: 2 } }
             },
-            xAxis: { title: { text: xAxisLabel } },
-            yAxis: { title: { text: yAxisLabel }, min: 0, max: 1 }
+            xAxis: {
+                title: { text: xAxisLabel, style: { color: mutedColor } },
+                labels: { style: { color: mutedColor } },
+                lineColor: gridColor, tickColor: gridColor
+            },
+            yAxis: {
+                title: { text: yAxisLabel, style: { color: mutedColor } },
+                labels: { style: { color: mutedColor } },
+                gridLineColor: gridColor,
+                min: 0, max: 1
+            }
         }
+    }
+
+    function applyHighchartsTheme() {
+        if (!window.Highcharts || !Highcharts.charts) return;
+        var isDark = document.documentElement.classList.contains('dark');
+        var textColor = isDark ? '#cbd5e1' : '#0f172a';
+        var mutedColor = isDark ? '#94a3b8' : '#64748b';
+        var gridColor = isDark ? '#334155' : '#e2e8f0';
+        var themeOpts = {
+            chart: { backgroundColor: 'transparent', style: { color: textColor } },
+            legend: { itemStyle: { color: textColor }, itemHoverStyle: { color: textColor } },
+            xAxis: {
+                labels: { style: { color: mutedColor } },
+                title: { style: { color: mutedColor } },
+                lineColor: gridColor, tickColor: gridColor
+            },
+            yAxis: {
+                labels: { style: { color: mutedColor } },
+                title: { style: { color: mutedColor } },
+                gridLineColor: gridColor
+            }
+        };
+        Highcharts.charts.forEach(function (c) {
+            if (!c) return;
+            c.update(themeOpts, false);
+            c.redraw(false);
+        });
+    }
+
+    if (window.ThemeManager) {
+        window.ThemeManager.onChange(applyHighchartsTheme);
     }
 </script>
 
