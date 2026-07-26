@@ -37,8 +37,8 @@
                 <label for="pageSelfTime">Self time table</label>
             </div>
             <div class="radio-row">
-                <input name="page" type="radio" id="pageCorrId" onclick="return enableCorrelationId()"/>
-                <label for="pageCorrId">Correlation ID stats</label>
+                <input name="page" type="radio" id="pageSpan" onclick="return enableSpan()"/>
+                <label for="pageSpan">Span stats</label>
             </div>
             <div class="radio-row">
                 <input name="page" type="radio" id="pageCpu" onclick="return enableCpu()"/>
@@ -167,7 +167,7 @@
                     </div>
                     <div id="stackTraceFilterContent" class="filter-inputs">
                         <div id="stackTraceFilterList">
-                            <div class="filter-row stack-trace-filter-row">
+                            <div class="filter-row multi-filter-row">
                                 <input name="stackTraceFilter_0" type="text" class="stack-trace-filter-input" placeholder="e.g. com.example"/>
                                 <button class="btn-remove-filter" onclick="removeFilterRow(this, 'stackTraceFilterList')" style="display:none">
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -189,7 +189,7 @@
                     </div>
                     <div id="stackTraceNotContainsFilterContent" class="filter-inputs">
                         <div id="stackTraceNotContainsFilterList">
-                            <div class="filter-row stack-trace-filter-row">
+                            <div class="filter-row multi-filter-row">
                                 <input name="stackTraceNotContainsFilter_0" type="text" class="stack-trace-not-contains-filter-input" placeholder="e.g. sun.misc"/>
                                 <button class="btn-remove-filter" onclick="removeFilterRow(this, 'stackTraceNotContainsFilterList')" style="display:none">
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -203,14 +203,36 @@
                     </div>
                 </div>
 
-                <!-- Correlation ID -->
+                <!-- Span -->
                 <div class="filter-group">
                     <div class="checkbox-row">
-                        <input id="ecidFilterOn" name="ecidFilterOn" type="checkbox" onchange="toggleFilter('ecidFilterContent', this)"/>
-                        <label for="ecidFilterOn">Correlation ID</label>
+                        <input id="spanFilterEqualsOn" name="spanFilterEqualsOn" type="checkbox" onchange="toggleFilter('spanFilterEqualsContent', this)"/>
+                        <label for="spanFilterEqualsOn">Span (equals)</label>
                     </div>
-                    <div id="ecidFilterContent" class="filter-inputs">
-                        <input id="ecidFilter" name="ecidFilter" type="text" placeholder="Correlation ID"/>
+                    <div id="spanFilterEqualsContent" class="filter-inputs">
+                        <input id="spanFilterEquals" name="spanFilterEquals" type="text" placeholder="Span"/>
+                    </div>
+                </div>
+
+                <!-- Span (contains) - multiple -->
+                <div class="filter-group">
+                    <div class="checkbox-row">
+                        <input id="spanFilterContainsOn" name="spanFilterContainsOn" type="checkbox" onchange="toggleFilter('spanFilterContainsContent', this)"/>
+                        <label for="spanFilterContainsOn">Span (contains)</label>
+                    </div>
+                    <div id="spanFilterContainsContent" class="filter-inputs">
+                        <div id="spanFilterContainsList">
+                            <div class="filter-row multi-filter-row">
+                                <input name="spanFilterContains_0" type="text" placeholder="e.g. checkout"/>
+                                <button class="btn-remove-filter" onclick="removeFilterRow(this, 'spanFilterContainsList')" style="display:none">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn-add-filter" onclick="addFilterRow('spanFilterContainsList', 'spanFilterContains', 'e.g. checkout')">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add filter
+                        </button>
                     </div>
                 </div>
 
@@ -300,8 +322,8 @@
                     <label for="extractFilename">Filename</label>
                 </div>
                 <div class="checkbox-row">
-                    <input class="additional-level" id="extractEcid" name="extractEcid" type="checkbox"/>
-                    <label for="extractEcid">Correlation ID</label>
+                    <input class="additional-level" id="extractSpans" name="extractSpans" type="checkbox"/>
+                    <label for="extractSpans">Spans</label>
                 </div>
                 <div class="checkbox-row">
                     <input class="additional-level" id="extractLineNumbers" name="extractLineNumbers" type="checkbox"/>
@@ -371,13 +393,13 @@
     }
 
     // ---- Multi-filter rows ----
-    function addFilterRow(listId, prefix) {
+    function addFilterRow(listId, prefix, placeholder) {
         var list = document.getElementById(listId);
-        var rows = list.querySelectorAll('.stack-trace-filter-row');
+        var rows = list.querySelectorAll('.multi-filter-row');
         var index = rows.length;
         var div = document.createElement('div');
-        div.className = 'filter-row stack-trace-filter-row';
-        div.innerHTML = '<input name="' + prefix + '_' + index + '" type="text" placeholder="e.g. com.example"/>' +
+        div.className = 'filter-row multi-filter-row';
+        div.innerHTML = '<input name="' + prefix + '_' + index + '" type="text" placeholder="' + (placeholder || 'e.g. com.example') + '"/>' +
             '<button class="btn-remove-filter" onclick="removeFilterRow(this, \'' + listId + '\')">' +
             '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
         list.appendChild(div);
@@ -385,14 +407,14 @@
     }
 
     function removeFilterRow(btn, listId) {
-        btn.closest('.stack-trace-filter-row').remove();
+        btn.closest('.multi-filter-row').remove();
         reindexFilterRows(listId);
         updateRemoveButtons(listId);
     }
 
     function reindexFilterRows(listId) {
-        var prefix = listId === 'stackTraceFilterList' ? 'stackTraceFilter' : 'stackTraceNotContainsFilter';
-        var rows = document.querySelectorAll('#' + listId + ' .stack-trace-filter-row');
+        var prefix = listId.replace(/List$/, '');
+        var rows = document.querySelectorAll('#' + listId + ' .multi-filter-row');
         rows.forEach(function (row, index) {
             var input = row.querySelector('input[type=text]');
             if (input) input.name = prefix + '_' + index;
@@ -400,7 +422,7 @@
     }
 
     function updateRemoveButtons(listId) {
-        var rows = document.querySelectorAll('#' + listId + ' .stack-trace-filter-row');
+        var rows = document.querySelectorAll('#' + listId + ' .multi-filter-row');
         rows.forEach(function (row) {
             var btn = row.querySelector('.btn-remove-filter');
             if (btn) btn.style.display = rows.length <= 1 ? 'none' : '';
@@ -431,10 +453,10 @@
         currentToShow = 'selfTimeTableUrl';
         updateExternalContent();
     }
-    function enableCorrelationId() {
+    function enableSpan() {
         externalContent.style.display = '';
         newTabBtn.style.display = '';
-        currentToShow = 'correlationIdStatsUrl';
+        currentToShow = 'spanStatsUrl';
         updateExternalContent();
     }
     function enableCpu() {
@@ -492,7 +514,7 @@
         var flameGraphUrl = pressed.getAttribute('data-flames-url');
         var totalTimeTableUrl = pressed.getAttribute('data-total-time-table-url');
         var selfTimeTableUrl = pressed.getAttribute('data-self-time-table-url');
-        var correlationIdStatsUrl = '/stateful-jfr/single/correlation-id-stats?id=' + pressed.getAttribute('data-current');
+        var spanStatsUrl = '/stateful-jfr/single/span-stats?id=' + pressed.getAttribute('data-current');
 
         var params = collectParams();
         // Table limit
@@ -502,12 +524,12 @@
         flameGraphUrl += params;
         totalTimeTableUrl += params + tableLimitParam;
         selfTimeTableUrl += params + tableLimitParam;
-        correlationIdStatsUrl += params;
+        spanStatsUrl += params + tableLimitParam;
 
         storedUrls['flameGraphUrl'] = flameGraphUrl;
         storedUrls['totalTimeTableUrl'] = totalTimeTableUrl;
         storedUrls['selfTimeTableUrl'] = selfTimeTableUrl;
-        storedUrls['correlationIdStatsUrl'] = correlationIdStatsUrl;
+        storedUrls['spanStatsUrl'] = spanStatsUrl;
 
         updateExternalContent();
     }
@@ -527,8 +549,9 @@
             if (el.name && el.id) state['radio_' + el.name] = el.id;
         });
         // Count dynamic filter rows
-        state['_stfRows'] = document.querySelectorAll('#stackTraceFilterList .stack-trace-filter-row').length;
-        state['_stncfRows'] = document.querySelectorAll('#stackTraceNotContainsFilterList .stack-trace-filter-row').length;
+        state['_stfRows'] = document.querySelectorAll('#stackTraceFilterList .multi-filter-row').length;
+        state['_stncfRows'] = document.querySelectorAll('#stackTraceNotContainsFilterList .multi-filter-row').length;
+        state['_sfcRows'] = document.querySelectorAll('#spanFilterContainsList .multi-filter-row').length;
         window.open(url + '#' + encodeURIComponent(JSON.stringify(state)), '_blank');
     }
 
@@ -541,6 +564,8 @@
             for (var i = 1; i < stfRows; i++) addFilterRow('stackTraceFilterList', 'stackTraceFilter');
             var stncfRows = state['_stncfRows'] || 1;
             for (var i = 1; i < stncfRows; i++) addFilterRow('stackTraceNotContainsFilterList', 'stackTraceNotContainsFilter');
+            var sfcRows = state['_sfcRows'] || 1;
+            for (var i = 1; i < sfcRows; i++) addFilterRow('spanFilterContainsList', 'spanFilterContains', 'e.g. checkout');
             // Restore text inputs
             Object.keys(state).forEach(function (key) {
                 if (key.startsWith('_') || key.startsWith('radio_')) return;

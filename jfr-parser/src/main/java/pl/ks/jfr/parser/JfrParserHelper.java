@@ -73,6 +73,14 @@ class JfrParserHelper {
         return false;
     }
 
+    static boolean isSpanEvent(EventArray event) {
+        if (event.getType() instanceof StructContentType) {
+            StructContentType structContentType = (StructContentType) event.getType();
+            return structContentType.getIdentifier().equals("profiler.Span");
+        }
+        return false;
+    }
+
     static boolean isCpuLoadEvent(EventArray event) {
         if (event.getType() instanceof StructContentType) {
             StructContentType structContentType = (StructContentType) event.getType();
@@ -118,10 +126,6 @@ class JfrParserHelper {
         List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
 
         StringBuilder builder = new StringBuilder();
-
-        if (context.isIncludeEcid() && accessors.getEcidAccessor() != null) {
-            builder.append(accessors.getEcidAccessor().getMember(event).longValue()).append(";");
-        }
 
         if (context.isIncludeAnyTimestampAndDate()) {
             IQuantity startTime = accessors.getStartTimeAccessor().getMember(event);
@@ -211,15 +215,6 @@ class JfrParserHelper {
         return null;
     }
 
-    static IMemberAccessor<IQuantity, IItem> findEcidAccessor(EventArray eventArray) {
-        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
-            if (accessorKey.getKey().getIdentifier().equals("contextId")) {
-                return (IMemberAccessor<IQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
-            }
-        }
-        return null;
-    }
-
     static IMemberAccessor<IMCType, IItem> findMonitorClassAccessor(EventArray eventArray) {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("monitorClass")) {
@@ -229,10 +224,19 @@ class JfrParserHelper {
         return null;
     }
 
-    static IMemberAccessor<IQuantity, IItem> findLockDurationAccessor(EventArray eventArray) {
+    static IMemberAccessor<IQuantity, IItem> findDurationAccessor(EventArray eventArray) {
         for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
             if (accessorKey.getKey().getIdentifier().equals("duration")) {
                 return (IMemberAccessor<IQuantity, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
+            }
+        }
+        return null;
+    }
+
+    static IMemberAccessor<String, IItem> findTagAccessor(EventArray eventArray) {
+        for (Map.Entry<IAccessorKey<?>, ? extends IDescribable> accessorKey : eventArray.getType().getAccessorKeys().entrySet()) {
+            if (accessorKey.getKey().getIdentifier().equals("tag")) {
+                return (IMemberAccessor<String, IItem>) eventArray.getType().getAccessor(accessorKey.getKey());
             }
         }
         return null;

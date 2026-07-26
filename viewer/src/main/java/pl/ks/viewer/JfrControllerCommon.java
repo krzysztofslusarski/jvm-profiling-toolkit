@@ -73,10 +73,18 @@ abstract class JfrControllerCommon {
             builder.stackTraceNotContainsFilters(List.of());
         }
 
-        boolean ecidFilterOn = ON.equals(params.get("ecidFilterOn"));
-        builder.ecidFilterOn(ecidFilterOn);
-        if (ecidFilterOn) {
-            builder.ecidFilter(Long.parseLong(params.get("ecidFilter")));
+        boolean spanFilterEqualsOn = ON.equals(params.get("spanFilterEqualsOn"));
+        builder.spanFilterEqualsOn(spanFilterEqualsOn);
+        if (spanFilterEqualsOn) {
+            builder.spanFilterEquals(params.get("spanFilterEquals"));
+        }
+
+        boolean spanFilterContainsOn = ON.equals(params.get("spanFilterContainsOn"));
+        builder.spanFilterContainsOn(spanFilterContainsOn);
+        if (spanFilterContainsOn) {
+            builder.spanFilterContains(collectIndexedParams(params, "spanFilterContains"));
+        } else {
+            builder.spanFilterContains(List.of());
         }
 
         boolean startEndTimestampOn = ON.equals(params.get("startEndTimestampOn"));
@@ -102,8 +110,8 @@ abstract class JfrControllerCommon {
         if (ON.equals(params.get("extractFilename"))) {
             additionalLevels.add(AdditionalLevel.FILENAME);
         }
-        if (ON.equals(params.get("extractEcid"))) {
-            additionalLevels.add(AdditionalLevel.ECID);
+        if (ON.equals(params.get("extractSpans"))) {
+            additionalLevels.add(AdditionalLevel.SPANS);
         }
         if (ON.equals(params.get("extractLineNumbers"))) {
             additionalLevels.add(AdditionalLevel.LINE_NUMBERS);

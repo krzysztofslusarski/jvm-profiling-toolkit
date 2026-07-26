@@ -36,16 +36,16 @@ public class JfrCollapsedParsedFile {
     CollapsedStack cpuLoadMachineTotal = new CollapsedStack();
     CollapsedStack cpuLoadMachineTotalMinusJvmTotal = new CollapsedStack();
 
-    Map<Long, JfrEcidInfo> ecidInfo = new ConcurrentHashMap<>();
+    Map<Long, JfrSpanInfo> spanInfo = new ConcurrentHashMap<>();
 
     Map<String, String> cpuInfo = new ConcurrentHashMap<>();
     Map<String, String> osInfo = new ConcurrentHashMap<>();
     Map<String, String> jvmInfo = new ConcurrentHashMap<>();
     Map<String, String> initialSystemProperties = new ConcurrentHashMap<>();
 
-    public List<JfrEcidInfo> sortedEcidInfos(int limit) {
-        return ecidInfo.values().stream()
-                .sorted(Comparator.comparing(JfrEcidInfo::timeDiff).reversed())
+    public List<JfrSpanInfo> sortedSpanInfos(int limit) {
+        return spanInfo.values().stream()
+                .sorted(Comparator.comparing(JfrSpanInfo::getDuration).reversed())
                 .limit(limit)
                 .toList();
     }

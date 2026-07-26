@@ -17,6 +17,7 @@ package pl.ks.jfr.parser;
 
 import lombok.Builder;
 import lombok.Value;
+import lombok.With;
 import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
 import java.time.Instant;
@@ -29,12 +30,13 @@ import java.util.Set;
 public class JfrParsedLockEvent implements JfrParsedCommonStackTraceEvent {
     String[] stackTrace;
     int[] lineNumbers;
-    long correlationId;
     long duration;
     String threadName;
     String filename;
     Instant eventTime;
     String monitorClass;
+    @With
+    Set<JfrSpanInfo> spans;
 
     public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
         List<String[]> fullStackTrace = new ArrayList<>();

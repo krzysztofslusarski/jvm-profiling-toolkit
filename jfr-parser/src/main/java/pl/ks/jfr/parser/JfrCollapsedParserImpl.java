@@ -253,7 +253,6 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .allocationSizeAccessor(JfrParserHelper.findAllocSizeAccessor(eventArray))
                 .objectClassAccessor(JfrParserHelper.findObjectClassAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -278,7 +277,6 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .monitorClassAccessor(JfrParserHelper.findMonitorClassAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -301,7 +299,6 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .stateAccessor(JfrParserHelper.findStateAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -311,15 +308,6 @@ class JfrCollapsedParserImpl implements JfrCollapsedParser {
 
             boolean consumesCpu = accessors.getStateAccessor() != null &&
                     JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event));
-
-            if (accessors.getEcidAccessor() != null) {
-                long ecid = accessors.getEcidAccessor().getMember(event).longValue();
-                if (ecid != 0) {
-                    long startTimestamp = accessors.getStartTimeAccessor().getMember(event).longValue();
-                    Instant eventDate = Instant.ofEpochMilli(startTimestamp / 1000000);
-                    jfrCollapsedParsedFile.getEcidInfo().computeIfAbsent(ecid, JfrEcidInfo::new).newExecutionSample(eventDate, consumesCpu);
-                }
-            }
 
             String stacktrace = fetchFlatStackTrace(event, accessors, context);
             jfrCollapsedParsedFile.getWall().addSingleStack(stacktrace);

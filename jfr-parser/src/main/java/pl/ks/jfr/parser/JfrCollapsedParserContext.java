@@ -35,7 +35,6 @@ class JfrCollapsedParserContext {
     boolean includeTimestamp10SAndDate;
     boolean includeTimestamp1SAndDate;
     boolean includeTimestamp100MSAndDate;
-    boolean includeEcid;
     boolean includeAnyTimestampAndDate;
 
     @Builder
@@ -50,7 +49,6 @@ class JfrCollapsedParserContext {
         includeTimestamp10SAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_10_S);
         includeTimestamp1SAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_1_S);
         includeTimestamp100MSAndDate = additionalLevels.contains(AdditionalLevel.TIMESTAMP_100_MS);
-        includeEcid = additionalLevels.contains(AdditionalLevel.ECID);
         includeAnyTimestampAndDate = includeTimestamp10SAndDate || includeTimestamp1SAndDate || includeTimestamp100MSAndDate;
     }
 }

@@ -127,10 +127,10 @@ class StatefulJfrViewerController {
         return jfrViewerService.getLockTimeSamplesFlameGraph(uuid, createConfig(params));
     }
 
-    @GetMapping("/stateful-jfr/single/correlation-id-stats")
-    String getCorrelationIdStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
-        model.addAttribute("correlationIdStats", jfrViewerService.getCorrelationIdStats(uuid, createConfig(params)));
-        return "uploaded-stateful-jfr-correlation-id-stats";
+    @GetMapping("/stateful-jfr/single/span-stats")
+    String getSpanStats(Model model, @RequestParam("id") UUID uuid, @RequestParam Map<String, String> params) {
+        model.addAttribute("spanStats", jfrViewerService.getSpanStats(uuid, createConfig(params)));
+        return "uploaded-stateful-jfr-span-stats";
     }
 
     @GetMapping("/stateful-jfr/single/cpu-stats")

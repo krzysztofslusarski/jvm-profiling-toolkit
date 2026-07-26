@@ -15,33 +15,27 @@
  */
 package pl.ks.jfr.parser;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import lombok.Builder;
 import lombok.Value;
-import lombok.With;
-import pl.ks.jfr.parser.tuning.AdditionalLevel;
 
+/**
+ * Single <code>profiler.Span</code> event emitted by async-profiler ({@code one.profiler.Span.start()/end(id, tag)}).
+ */
 @Value
 @Builder
-public class JfrParsedAllocationEvent implements JfrParsedCommonStackTraceEvent {
-    String[] stackTrace;
-    int[] lineNumbers;
+public class JfrSpanInfo implements JfrParsedEventWithTime, JfrParsedEventWithThread {
+    private static final BigDecimal NANOS_IN_MS = BigDecimal.valueOf(1_000_000);
+
+    String tag;
     String threadName;
     String filename;
     Instant eventTime;
-    String objectClass;
-    long size;
-    boolean outsideTLAB;
-    @With
-    Set<JfrSpanInfo> spans;
+    long duration;
 
-    public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
-        List<String[]> fullStackTrace = new ArrayList<>();
-        addCommonStackTraceElements(fullStackTrace, additionalLevels);
-        fullStackTrace.add(new String[]{objectClass + (outsideTLAB ? "_[i]" : "_[k]")});
-        return fullStackTrace;
+    public BigDecimal getDurationInMs() {
+        return BigDecimal.valueOf(duration).divide(NANOS_IN_MS, 3, RoundingMode.HALF_EVEN);
     }
 }

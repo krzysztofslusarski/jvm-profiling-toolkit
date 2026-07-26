@@ -20,14 +20,17 @@ import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocNewTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isAsyncAllocOutsideTLABEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isCpuLoadEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isExecutionSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isLockEvent;
+import static pl.ks.jfr.parser.JfrParserHelper.isSpanEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.isWallClockSampleEvent;
 import static pl.ks.jfr.parser.JfrParserHelper.replaceCharacter;
 import static pl.ks.jfr.parser.JftFrameType.*;
@@ -89,6 +92,9 @@ class JfrParserImpl implements JfrParser {
         parent.cpuUsageSamples.stream()
                 .parallel()
                 .forEach(child::addCpuUsageEvent);
+        parent.spans.stream()
+                .parallel()
+                .forEach(child::addSpan);
         child.calculateAggregatedDates();
         return child;
     }
@@ -115,12 +121,12 @@ class JfrParserImpl implements JfrParser {
         return JfrParsedExecutionSampleEvent.builder()
                 .consumesCpu(event.isConsumesCpu())
                 .threadName(event.getThreadName())
-                .correlationId(event.getCorrelationId())
                 .filename(event.getFilename())
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
                 .lineNumbers(lineNumbers)
                 .samples(event.getSamples())
+                .spans(event.getSpans())
                 .build();
     }
 
@@ -132,13 +138,13 @@ class JfrParserImpl implements JfrParser {
 
         return JfrParsedAllocationEvent.builder()
                 .threadName(event.getThreadName())
-                .correlationId(event.getCorrelationId())
                 .filename(event.getFilename())
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
                 .objectClass(event.getObjectClass())
                 .size(event.getSize())
                 .outsideTLAB(event.isOutsideTLAB())
+                .spans(event.getSpans())
                 .build();
     }
 
@@ -150,12 +156,12 @@ class JfrParserImpl implements JfrParser {
 
         return JfrParsedLockEvent.builder()
                 .threadName(event.getThreadName())
-                .correlationId(event.getCorrelationId())
                 .filename(event.getFilename())
                 .eventTime(event.getEventTime())
                 .stackTrace(stackTrace)
                 .monitorClass(event.getMonitorClass())
                 .duration(event.getDuration())
+                .spans(event.getSpans())
                 .build();
     }
 
@@ -214,6 +220,7 @@ class JfrParserImpl implements JfrParser {
 
         try {
             jfrParsedFile.addFilename(filename);
+            AlreadyParsed alreadyParsed = AlreadyParsed.of(jfrParsedFile);
             EventArrays flightRecording = getFlightRecording(file);
 
             for (EventArray eventArray : flightRecording.getArrays()) {
@@ -229,6 +236,8 @@ class JfrParserImpl implements JfrParser {
                     processAllocEvent(jfrParsedFile, eventArray, filename, true);
                 } else if (isCpuLoadEvent(eventArray)) {
                     processCpuEvent(jfrParsedFile, eventArray, filename);
+                } else if (isSpanEvent(eventArray)) {
+                    processSpanEvent(jfrParsedFile, eventArray, filename);
                 }
             }
 
@@ -236,12 +245,62 @@ class JfrParserImpl implements JfrParser {
                 extractExactTime(jfrParsedFile);
                 jfrParsedFile.getWallClockSamplesToProcess().clear();
             }
+
+            fillSpans(jfrParsedFile, alreadyParsed);
         } catch (Exception e) {
             log.error("Fatal error", e);
             if (jfrParsedFile.isThrowOnErroredFile()) {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    /**
+     * Sizes of the event lists before a file is parsed - only the events that the file added have to be matched with
+     * the spans that the same file added.
+     */
+    private record AlreadyParsed(int executionSamples, int wallClockSamples, int allocationSamples, int lockSamples,
+                                 int spans) {
+        private static AlreadyParsed of(JfrParsedFile jfrParsedFile) {
+            return new AlreadyParsed(
+                    jfrParsedFile.executionSamples.size(),
+                    jfrParsedFile.wallClockSamples.size(),
+                    jfrParsedFile.allocationSamples.size(),
+                    jfrParsedFile.lockSamples.size(),
+                    jfrParsedFile.spans.size()
+            );
+        }
+    }
+
+    private static void fillSpans(JfrParsedFile jfrParsedFile, AlreadyParsed alreadyParsed) {
+        List<JfrSpanInfo> spans = newlyParsed(jfrParsedFile.spans, alreadyParsed.spans());
+        if (spans.isEmpty()) {
+            return;
+        }
+
+        JfrSpanIndex spanIndex = JfrSpanIndex.of(spans);
+        fillSpans(newlyParsed(jfrParsedFile.executionSamples, alreadyParsed.executionSamples()), spanIndex, JfrParsedExecutionSampleEvent::withSpans);
+        fillSpans(newlyParsed(jfrParsedFile.wallClockSamples, alreadyParsed.wallClockSamples()), spanIndex, JfrParsedExecutionSampleEvent::withSpans);
+        fillSpans(newlyParsed(jfrParsedFile.allocationSamples, alreadyParsed.allocationSamples()), spanIndex, JfrParsedAllocationEvent::withSpans);
+        fillSpans(newlyParsed(jfrParsedFile.lockSamples, alreadyParsed.lockSamples()), spanIndex, JfrParsedLockEvent::withSpans);
+    }
+
+    private static <T extends JfrParsedCommonStackTraceEvent> void fillSpans(
+            List<T> events,
+            JfrSpanIndex spanIndex,
+            BiFunction<T, Set<JfrSpanInfo>, T> withSpans
+    ) {
+        IntStream.range(0, events.size()).parallel().forEach(i -> {
+            T event = events.get(i);
+            Set<JfrSpanInfo> spans = spanIndex.spansAt(event.getThreadName(), event.getEventTime());
+            if (spans != null) {
+                events.set(i, withSpans.apply(event, spans));
+            }
+        });
+    }
+
+    private static <T> List<T> newlyParsed(List<T> events, int alreadyParsed) {
+        return events.subList(alreadyParsed, events.size());
     }
 
     private static void extractExactTime(JfrParsedFile jfrParsedFile) {
@@ -322,21 +381,41 @@ class JfrParserImpl implements JfrParser {
 
     }
 
+    private static void processSpanEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {
+        JfrAccessors accessors = JfrAccessors.builder()
+                .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
+                .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
+                .durationAccessor(JfrParserHelper.findDurationAccessor(eventArray))
+                .tagAccessor(JfrParserHelper.findTagAccessor(eventArray))
+                .build();
+
+        Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
+            var thread = accessors.getThreadAccessor() == null ? null : accessors.getThreadAccessor().getMember(event);
+            String tag = accessors.getTagAccessor() == null ? null : accessors.getTagAccessor().getMember(event);
+            jfrParsedFile.addSpan(JfrSpanInfo.builder()
+                    .tag(tag == null ? "" : jfrParsedFile.getCanonicalString(jfrParsedFile, tag))
+                    .threadName(thread == null ? "" : jfrParsedFile.getCanonicalString(jfrParsedFile, thread.getThreadName()))
+                    .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
+                    .duration(accessors.getDurationAccessor() != null ? accessors.getDurationAccessor().getMember(event).in(UnitLookup.NANOSECOND).longValue() : 0L)
+                    .filename(filename)
+                    .build()
+            );
+        });
+    }
+
     private static void processLockEvent(JfrParsedFile jfrParsedFile, EventArray eventArray, String filename) {
         JfrAccessors accessors = JfrAccessors.builder()
                 .stackTraceAccessor(JfrAttributes.EVENT_STACKTRACE.getAccessor(eventArray.getType()))
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .monitorClassAccessor(JfrParserHelper.findMonitorClassAccessor(eventArray))
-                .lockDurationAccessor(JfrParserHelper.findLockDurationAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
+                .durationAccessor(JfrParserHelper.findDurationAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
             List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
             jfrParsedFile.addLockSampleEvent(JfrParsedLockEvent.builder()
-                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
-                    .duration(accessors.getLockDurationAccessor() != null ? accessors.getLockDurationAccessor().getMember(event).in(UnitLookup.NANOSECOND).longValue() : 0L)
+                    .duration(accessors.getDurationAccessor() != null ? accessors.getDurationAccessor().getMember(event).in(UnitLookup.NANOSECOND).longValue() : 0L)
                     .filename(filename)
                     .threadName(jfrParsedFile.getCanonicalString(jfrParsedFile, accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
@@ -355,7 +434,6 @@ class JfrParserImpl implements JfrParser {
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .allocationSizeAccessor(JfrParserHelper.findAllocSizeAccessor(eventArray))
                 .objectClassAccessor(JfrParserHelper.findObjectClassAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
@@ -365,7 +443,6 @@ class JfrParserImpl implements JfrParser {
             }
             List<? extends IMCFrame> frames = stackTrace.getFrames();
             jfrParsedFile.addAllocationSampleEvent(JfrParsedAllocationEvent.builder()
-                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
                     .filename(filename)
                     .threadName(jfrParsedFile.getCanonicalString(jfrParsedFile, accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
@@ -386,7 +463,6 @@ class JfrParserImpl implements JfrParser {
                 .threadAccessor(JfrParserHelper.findThreadAccessor(eventArray))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .stateAccessor(JfrParserHelper.findStateAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .samplesAccessor(JfrParserHelper.findSamplesAccessor(eventArray))
                 .build();
 
@@ -398,7 +474,6 @@ class JfrParserImpl implements JfrParser {
             List<? extends IMCFrame> frames = stackTrace.getFrames();
             final JfrParsedExecutionSampleEvent sampleEvent = JfrParsedExecutionSampleEvent.builder()
                     .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
-                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
                     .filename(filename)
                     .threadName(jfrParsedFile.getCanonicalString(jfrParsedFile, accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())
@@ -406,10 +481,7 @@ class JfrParserImpl implements JfrParser {
                     .lineNumbers(getLineNumbers(jfrParsedFile, frames))
                     .samples(accessors.getSamplesAccessor() != null ? accessors.getSamplesAccessor().getMember(event).longValue() : 0L)
                     .build();
-//            if (sampleEvent.stackTraceContains("QueueingClickhouseDao.exec")){
-//            if (sampleEvent.getThreadName().startsWith("ch-congestion-control-pool-")){
-                jfrParsedFile.addWallClockSampleEvent(sampleEvent);
-//            }
+            jfrParsedFile.addWallClockSampleEvent(sampleEvent);
         });
     }
 
@@ -419,14 +491,12 @@ class JfrParserImpl implements JfrParser {
                 .threadAccessor(JfrAttributes.EVENT_THREAD.getAccessor(eventArray.getType()))
                 .startTimeAccessor(JfrAttributes.START_TIME.getAccessor(eventArray.getType()))
                 .stateAccessor(JfrParserHelper.findStateAccessor(eventArray))
-                .ecidAccessor(JfrParserHelper.findEcidAccessor(eventArray))
                 .build();
 
         Arrays.stream(eventArray.getEvents()).parallel().forEach(event -> {
             List<? extends IMCFrame> frames = accessors.getStackTraceAccessor().getMember(event).getFrames();
             jfrParsedFile.addExecutionSampleEvent(JfrParsedExecutionSampleEvent.builder()
                     .consumesCpu(accessors.getStateAccessor() != null && JfrParserHelper.isConsumingCpu(accessors.getStateAccessor().getMember(event)))
-                    .correlationId(accessors.getEcidAccessor() != null ? accessors.getEcidAccessor().getMember(event).longValue() : 0L)
                     .filename(filename)
                     .threadName(jfrParsedFile.getCanonicalString(jfrParsedFile, accessors.getThreadAccessor().getMember(event).getThreadName()))
                     .eventTime(new Date(accessors.getStartTimeAccessor().getMember(event).longValue() / 1000000).toInstant())

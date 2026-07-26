@@ -24,10 +24,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import pl.ks.collapsed.CollapsedStack;
-import pl.ks.jfr.parser.JfrEcidInfo;
+import pl.ks.jfr.parser.JfrSpanInfo;
 import pl.ks.jfr.parser.JfrParsedAllocationEvent;
 import pl.ks.jfr.parser.JfrParsedCommonStackTraceEvent;
 import pl.ks.jfr.parser.JfrParsedCpuUsageEvent;
+import pl.ks.jfr.parser.JfrParsedEventWithThread;
 import pl.ks.jfr.parser.JfrParsedEventWithTime;
 import pl.ks.jfr.parser.JfrParsedExecutionSampleEvent;
 import pl.ks.jfr.parser.JfrParsedFile;
@@ -83,15 +84,18 @@ class StatefulJfrViewerService {
                 .build();
     }
 
-    List<JfrEcidInfo> getCorrelationIdStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        Map<Long, JfrEcidInfo> correlationIdInfo = new ConcurrentHashMap<>();
-        getFilteredExecutionSamples(config, getFile(uuid)).stream().parallel().forEach(sample -> {
-            correlationIdInfo.computeIfAbsent(sample.getCorrelationId(), JfrEcidInfo::new)
-                    .newExecutionSample(sample.getEventTime(), sample.isConsumesCpu());
-        });
-        return correlationIdInfo.values().stream()
-                .sorted(Comparator.comparing(JfrEcidInfo::timeDiff).reversed())
-                .limit(1000)
+    List<JfrSpanInfo> getSpanStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        JfrParsedFile jfrParsedFile = getFile(uuid);
+        List<Predicate<JfrSpanInfo>> filters = createFilters(config, jfrParsedFile, JfrSpanInfo.class);
+
+        Stream<JfrSpanInfo> spans = jfrParsedFile.getSpans().stream();
+        for (Predicate<JfrSpanInfo> filter : filters) {
+            spans = spans.filter(filter);
+        }
+
+        return spans
+                .sorted(Comparator.comparing(JfrSpanInfo::getDuration).reversed())
+                .limit(config.getTableLimit())
                 .toList();
     }
 
@@ -261,6 +265,31 @@ class StatefulJfrViewerService {
         return selfAndTotalTimeStats;
     }
 
+    /**
+     * Accepts events recorded on the thread of one of the tag matching spans, between the span start and its end.
+     */
+    private static boolean recordedInsideSpan(Object event, Predicate<String> tagMatches) {
+        Set<JfrSpanInfo> spans = ((JfrParsedCommonStackTraceEvent) event).getSpans();
+        if (spans == null) {
+            return false;
+        }
+        for (JfrSpanInfo span : spans) {
+            if (tagMatches.test(span.getTag())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean tagContainsAny(String tag, List<String> parts) {
+        for (String part : parts) {
+            if (tag.contains(part)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @SneakyThrows
     private <T> List<Predicate<T>> createFilters(JfrViewerFilterAndLevelConfig config, JfrParsedFile jfrParsedFile, Class<T> clazz) {
         List<Predicate<T>> filters = new ArrayList<>(2);
@@ -271,15 +300,21 @@ class StatefulJfrViewerService {
             }
         }
 
-        if (JfrParsedCommonStackTraceEvent.class.isAssignableFrom(clazz)) {
+        if (JfrParsedEventWithThread.class.isAssignableFrom(clazz)) {
             if (config.isThreadFilterOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getThreadName().equalsIgnoreCase(config.getThreadFilter()));
+                filters.add(t -> ((JfrParsedEventWithThread) t).getThreadName().equalsIgnoreCase(config.getThreadFilter()));
             }
             if (config.isThreadFilterContainsOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getThreadName().toLowerCase().contains(config.getThreadFilterContains().toLowerCase()));
+                filters.add(t -> ((JfrParsedEventWithThread) t).getThreadName().toLowerCase().contains(config.getThreadFilterContains().toLowerCase()));
             }
-            if (config.isEcidFilterOn()) {
-                filters.add(t -> ((JfrParsedCommonStackTraceEvent) t).getCorrelationId() == config.getEcidFilter());
+        }
+
+        if (JfrParsedCommonStackTraceEvent.class.isAssignableFrom(clazz)) {
+            if (config.isSpanFilterEqualsOn()) {
+                filters.add(t -> recordedInsideSpan(t, tag -> tag.equals(config.getSpanFilterEquals())));
+            }
+            if (config.isSpanFilterContainsOn()) {
+                filters.add(t -> recordedInsideSpan(t, tag -> tagContainsAny(tag, config.getSpanFilterContains())));
             }
             if (config.isStackTraceFilterOn()) {
                 for (String filter : config.getStackTraceFilters()) {

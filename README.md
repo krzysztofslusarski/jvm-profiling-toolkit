@@ -2,11 +2,6 @@
 Viewer for collapsed stack and JFR outputs of profiles. Dedicated to Async-profiler 2.x, but
 works also with Async-profiler 1.x and Java Flight Recorder.
 
-## ECID functionality
-
-To benefit from filters with ECID you need to use precompiled Async-profiler from
-[PR](https://github.com/jvm-profiling-tools/async-profiler/pull/576), and make use of a new API created there.
-
 JAVA_HOME should point to JDK 17.
 
 ## How to install - from sources
@@ -96,13 +91,6 @@ collapsed stack from your JFR file:
   * JVM total
   * Machine total
   * Machine total - JVM total 
-
-##### CPU usage flame graphs
-
-![Cpu usage](images/cpuusage.png)
-
-On example above you can see that the CPU (this one is JVM total) consumed at least **30%** of the CPU 
-for **71,21%** of time.
 
 #### Other JFR information
 

@@ -38,8 +38,10 @@ public class JfrViewerFilterAndLevelConfig {
     boolean warmupDurationOn;
     int wdWarmup;
     long wdDuration;
-    boolean ecidFilterOn;
-    long ecidFilter;
+    boolean spanFilterEqualsOn;
+    String spanFilterEquals;
+    boolean spanFilterContainsOn;
+    List<String> spanFilterContains;
     boolean startEndTimestampOn;
     long startTs;
     long endTs;

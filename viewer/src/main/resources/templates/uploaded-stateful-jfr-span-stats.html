@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/app.css" rel="stylesheet">
+    <script src="/js/theme.js"></script>
+</head>
+<body>
+<div class="iframe-page">
+    <h3 class="section-title">Span Info <span style="font-weight: 400; font-size: 0.875rem; color: var(--text-secondary);" th:inline="text">- [[${#lists.size(spanStats)}]] longest entries</span></h3>
+    <div class="search-box">
+        <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" onkeyup="filterTable(this)" placeholder="Search spans..."/>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="data-table" id="table">
+            <thead>
+            <tr>
+                <th>Tag</th>
+                <th>Duration [ms]</th>
+                <th>Start time (UTC)</th>
+                <th>Thread</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row, rowStatus: ${spanStats}">
+                <td class="text-mono" style="text-align: left" th:inline="text">[[${row.getTag()}]]</td>
+                <td th:inline="text">[[${row.getDurationInMs()}]]</td>
+                <td class="text-mono" th:inline="text">[[${row.getEventTime()}]]</td>
+                <td style="text-align: left" th:inline="text">[[${row.getThreadName()}]]</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function filterTable(input) {
+    var value = input.value.toLowerCase();
+    var rows = document.querySelectorAll('#table tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+        var cell = rows[i].querySelector('td');
+        if (cell) {
+            rows[i].style.display = cell.textContent.toLowerCase().indexOf(value) > -1 ? '' : 'none';
+        }
+    }
+}
+</script>
+</body>
+</html>

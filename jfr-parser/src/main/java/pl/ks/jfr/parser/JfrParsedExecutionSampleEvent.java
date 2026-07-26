@@ -29,7 +29,6 @@ import pl.ks.jfr.parser.tuning.AdditionalLevel;
 public class JfrParsedExecutionSampleEvent implements JfrParsedCommonStackTraceEvent {
     String[] stackTrace;
     int[] lineNumbers;
-    long correlationId;
     String threadName;
     String filename;
     @With
@@ -37,6 +36,8 @@ public class JfrParsedExecutionSampleEvent implements JfrParsedCommonStackTraceE
     boolean consumesCpu;
     @With
     long samples;
+    @With
+    Set<JfrSpanInfo> spans;
 
     public List<String[]> getFullStackTrace(Set<AdditionalLevel> additionalLevels) {
         List<String[]> fullStackTrace = new ArrayList<>();

@@ -41,6 +41,7 @@ public class JfrParsedFile {
     final List<JfrParsedAllocationEvent> allocationSamples = new ArrayList<>();
     final List<JfrParsedLockEvent> lockSamples = new ArrayList<>();
     final List<JfrParsedCpuUsageEvent> cpuUsageSamples = new ArrayList<>();
+    final List<JfrSpanInfo> spans = new ArrayList<>();
     final List<String> filenames = new ArrayList<>();
 
     private final Map<String, String> canonicalStrings = new ConcurrentHashMap<>();
@@ -101,6 +102,12 @@ public class JfrParsedFile {
         }
     }
 
+    void addSpan(JfrSpanInfo span) {
+        synchronized (spans) {
+            spans.add(span);
+        }
+    }
+
     String getCanonicalString(final JfrParsedFile jfrParsedFile, String str) {
         String canonical = canonicalStrings.computeIfAbsent(str, aStr -> unifyLambdaAwareString(jfrParsedFile, aStr));
         return canonical == null ? canonicalStrings.get(str) : canonical;
@@ -114,12 +121,14 @@ public class JfrParsedFile {
         minEventDate = getMinDate(List.of(
                 getMinDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
                 getMinDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
-                getMinDate(lockSamples, JfrParsedLockEvent::getEventTime)
+                getMinDate(lockSamples, JfrParsedLockEvent::getEventTime),
+                getMinDate(spans, JfrSpanInfo::getEventTime)
         ), identity());
         maxEventDate = getMaxDate(List.of(
                 getMaxDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
                 getMaxDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
-                getMaxDate(lockSamples, JfrParsedLockEvent::getEventTime)
+                getMaxDate(lockSamples, JfrParsedLockEvent::getEventTime),
+                getMaxDate(spans, JfrSpanInfo::getEventTime)
         ), identity());
     }
 
@@ -157,6 +166,10 @@ public class JfrParsedFile {
 
     public List<JfrParsedCpuUsageEvent> getCpuUsageSamples() {
         return cpuUsageSamples;
+    }
+
+    public List<JfrSpanInfo> getSpans() {
+        return spans;
     }
 
     public Instant getParseStartDate() {
