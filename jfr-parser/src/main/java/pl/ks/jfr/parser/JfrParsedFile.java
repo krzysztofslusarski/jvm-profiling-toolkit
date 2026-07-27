@@ -55,6 +55,8 @@ public class JfrParsedFile {
     private final boolean unifyLambdas;
     @Getter
     private final boolean throwOnErroredFile;
+    @Getter
+    private final boolean crossFileSpanMatching;
     private Instant minEventDate;
     private Instant maxEventDate;
 

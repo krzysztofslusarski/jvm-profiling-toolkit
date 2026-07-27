@@ -212,13 +212,13 @@ class StatefulJfrViewerService {
         return samples.toList();
     }
 
-    UUID parseNewFiles(List<String> files, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile) {
+    UUID parseNewFiles(List<String> files, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile, boolean crossFileSpanMatching) {
         UUID uuid = UUID.randomUUID();
         List<Path> paths = files.stream()
                 .map(Paths::get)
                 .toList();
 
-        JfrParsedFile parsedFile = jfrParser.parse(paths, oldAsyncProfiler, wallClockExactTime, unifyLambdas, throwOnErroredFile);
+        JfrParsedFile parsedFile = jfrParser.parse(paths, oldAsyncProfiler, wallClockExactTime, unifyLambdas, throwOnErroredFile, crossFileSpanMatching);
         addNewFile(uuid, parsedFile);
         return uuid;
     }

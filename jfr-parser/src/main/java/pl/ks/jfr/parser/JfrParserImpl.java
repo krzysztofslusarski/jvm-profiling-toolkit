@@ -41,12 +41,15 @@ class JfrParserImpl implements JfrParser {
     private static final Map<Class, Field> FIELD_MAP = new ConcurrentHashMap<>();
 
     @Override
-    public JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile) {
+    public JfrParsedFile parse(List<Path> jfrFiles, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile, boolean crossFileSpanMatching) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        JfrParsedFile jfrParsedFile = new JfrParsedFile(oldAsyncProfiler, wallClockExactTime, unifyLambdas, throwOnErroredFile);
+        JfrParsedFile jfrParsedFile = new JfrParsedFile(oldAsyncProfiler, wallClockExactTime, unifyLambdas, throwOnErroredFile, crossFileSpanMatching);
 
         jfrFiles.forEach(path -> parseFile(path, jfrParsedFile));
+        if (crossFileSpanMatching) {
+            fillSpans(jfrParsedFile, AlreadyParsed.NOTHING);
+        }
         jfrParsedFile.calculateAggregatedDates();
         stopWatch.stop();
         log.info("Parsing took: {}ms", stopWatch.getLastTaskTimeMillis());
@@ -55,7 +58,7 @@ class JfrParserImpl implements JfrParser {
 
     @Override
     public JfrParsedFile trim(JfrParsedFile parent, String method, JfrParsedFile.Direction direction) {
-        JfrParsedFile child = new JfrParsedFile(parent.isOldAsyncProfiler(), parent.isWallClockExactTime(), parent.isUnifyLambdas(), parent.isThrowOnErroredFile());
+        JfrParsedFile child = new JfrParsedFile(parent.isOldAsyncProfiler(), parent.isWallClockExactTime(), parent.isUnifyLambdas(), parent.isThrowOnErroredFile(), parent.isCrossFileSpanMatching());
         parent.filenames.forEach(child::addFilename);
         parent.wallClockSamples.stream()
                 .parallel()
@@ -246,7 +249,9 @@ class JfrParserImpl implements JfrParser {
                 jfrParsedFile.getWallClockSamplesToProcess().clear();
             }
 
-            fillSpans(jfrParsedFile, alreadyParsed);
+            if (!jfrParsedFile.isCrossFileSpanMatching()) {
+                fillSpans(jfrParsedFile, alreadyParsed);
+            }
         } catch (Exception e) {
             log.error("Fatal error", e);
             if (jfrParsedFile.isThrowOnErroredFile()) {
@@ -257,10 +262,13 @@ class JfrParserImpl implements JfrParser {
 
     /**
      * Sizes of the event lists before a file is parsed - only the events that the file added have to be matched with
-     * the spans that the same file added.
+     * the spans that the same file added. With cross file span matching every event is matched with every span, so
+     * {@link AlreadyParsed#NOTHING} is used instead.
      */
     private record AlreadyParsed(int executionSamples, int wallClockSamples, int allocationSamples, int lockSamples,
                                  int spans) {
+        private static final AlreadyParsed NOTHING = new AlreadyParsed(0, 0, 0, 0, 0);
+
         private static AlreadyParsed of(JfrParsedFile jfrParsedFile) {
             return new AlreadyParsed(
                     jfrParsedFile.executionSamples.size(),

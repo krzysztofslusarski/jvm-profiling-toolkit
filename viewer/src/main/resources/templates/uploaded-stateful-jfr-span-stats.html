@@ -25,6 +25,7 @@
                 <th>Duration [ms]</th>
                 <th>Start time (UTC)</th>
                 <th>Thread</th>
+                <th>File</th>
             </tr>
             </thead>
             <tbody>
@@ -33,6 +34,7 @@
                 <td th:inline="text">[[${row.getDurationInMs()}]]</td>
                 <td class="text-mono" th:inline="text">[[${row.getEventTime()}]]</td>
                 <td style="text-align: left" th:inline="text">[[${row.getThreadName()}]]</td>
+                <td style="text-align: left" th:inline="text">[[${row.getFilename()}]]</td>
             </tr>
             </tbody>
         </table>

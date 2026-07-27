@@ -54,7 +54,8 @@ class StatefulJfrViewerController {
                   @RequestParam(value = "oldAsyncProfiler", required = false) Boolean oldAsyncProfiler,
                   @RequestParam(value = "wallClockExactTime", required = false) Boolean wallClockExactTime,
                   @RequestParam(value = "throwOnErroredFile", required = false) Boolean throwOnErroredFile,
-                  @RequestParam(value = "unifyLambdas", required = false) Boolean unifyLambdas
+                  @RequestParam(value = "unifyLambdas", required = false) Boolean unifyLambdas,
+                  @RequestParam(value = "crossFileSpanMatching", required = false) Boolean crossFileSpanMatching
     ) throws Exception {
         List<String> savedCopies = new ArrayList<>(files.length);
         for (MultipartFile file : files) {
@@ -65,7 +66,8 @@ class StatefulJfrViewerController {
         }
         jfrViewerService.parseNewFiles(savedCopies, oldAsyncProfiler != null && oldAsyncProfiler,
                 wallClockExactTime != null && wallClockExactTime, unifyLambdas != null && unifyLambdas,
-                throwOnErroredFile != null && throwOnErroredFile);
+                throwOnErroredFile != null && throwOnErroredFile,
+                crossFileSpanMatching != null && crossFileSpanMatching);
         return uploadJfr(model);
     }
 
