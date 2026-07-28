@@ -24,6 +24,45 @@ server:
   port: 8079 
 ```
 
+## Console viewer
+If you cannot (or do not want to) open a browser, there is a full screen console viewer for JFR files:
+
+```shell script
+java -jar cli-application/target/jfr-cli.jar [options] <file.jfr> [<file.jfr> ...]
+```
+
+It gives you the same four pages as the web viewer - flame graph, total time table, self time table and
+span stats - computed by exactly the same code. Only JFR files are supported, collapsed stack files are not.
+
+Parsing options, the counterparts of the checkboxes on the upload page:
+
+* `--old-async-profiler` - files were recorded with Async-profiler older than 2.9
+* `--wall-clock-exact-time` - use the exact time of wall-clock samples
+* `--unify-lambdas` - merge lambda classes differing only by their generated suffix
+* `--cross-file-span-matching` - match spans with events recorded in the other files
+* `--throw-on-errored-file` - fail instead of skipping a file that cannot be parsed
+* `--table-limit=<rows>` - maximum number of rows in the tables, `10000` by default
+
+A console is too narrow for a sidebar, so every filter and option lives behind a shortcut:
+
+| Key           | Action                                                                    |
+|---------------|---------------------------------------------------------------------------|
+| `1` .. `4`    | flame graph / total time / self time / span stats                          |
+| `e`           | event: execution, wall-clock, allocation (count, size), lock (count, time)  |
+| `f`           | filters: thread, stack trace, span, time, consumes CPU                      |
+| `l`           | additional levels of the flame graph                                        |
+| `o`           | options: table limit, reverse flame graph                                   |
+| `r` or `F5`   | reload the page with the current settings                                   |
+| `/`           | highlight frames (flame graph) or filter rows (tables)                      |
+| `x`           | export the current flame graph as an interactive HTML file                  |
+| `?` or `F1`   | list of all shortcuts                                                       |
+| `q`           | quit                                                                        |
+
+The flame graph is drawn like the HTML one - it grows upwards from `all` at the bottom, and turns into an
+icicle hanging from the top when the stacks are reversed. Arrows move between frames in the direction they
+are drawn, `Enter` zooms into the selected frame, `Backspace` zooms out and `Home` resets the zoom. Frames
+are coloured exactly like in the HTML flame graphs.
+
 ## Example usage od Async-profiler for collapsed stack
 `
 ./profiler -t -d 30 -e cpu -o collapsed -f output.txt <pid>

@@ -38,7 +38,7 @@ import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 
 @Slf4j
 @RequiredArgsConstructor
-class StatefulJfrViewerService {
+public class StatefulJfrViewerService {
     private final Map<UUID, JfrParsedFile> parsedFiles = new ConcurrentHashMap<>();
 
     private final JfrParser jfrParser;
@@ -60,7 +60,7 @@ class StatefulJfrViewerService {
         parsedFiles.remove(uuid);
     }
 
-    JfrParsedFile getFile(UUID uuid) {
+    public JfrParsedFile getFile(UUID uuid) {
         return parsedFiles.get(uuid);
     }
 
@@ -84,7 +84,7 @@ class StatefulJfrViewerService {
                 .build();
     }
 
-    List<JfrSpanInfo> getSpanStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public List<JfrSpanInfo> getSpanStats(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = getFile(uuid);
         List<Predicate<JfrSpanInfo>> filters = createFilters(config, jfrParsedFile, JfrSpanInfo.class);
 
@@ -99,26 +99,32 @@ class StatefulJfrViewerService {
                 .toList();
     }
 
-    byte[] getExecutionSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getExecutionSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
+        return jfrParsedFile.asCollapsed(getFilteredExecutionSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace, JfrParsedExecutionSampleEvent::getSamples);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Execution samples", config.isReverseOn());
     }
 
-    byte[] getWallClockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getWallClockSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredWallClockSamples(config, jfrParsedFile),
+        return jfrParsedFile.asCollapsed(getFilteredWallClockSamples(config, jfrParsedFile),
                 config.getAdditionalLevels(), JfrParsedExecutionSampleEvent::getFullStackTrace, JfrParsedExecutionSampleEvent::getSamples);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Wall-clock samples", config.isReverseOn());
     }
 
-    TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public byte[] getExecutionSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getExecutionSamplesCollapsed(uuid, config), "Execution samples", config.isReverseOn());
+    }
+
+    public byte[] getWallClockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getWallClockSamplesCollapsed(uuid, config), "Wall-clock samples", config.isReverseOn());
+    }
+
+    public TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         return TimeTableCreator.create(generateTimeStats(getFilteredExecutionSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
 
-    TimeTable getWallClockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public TimeTable getWallClockSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         return TimeTableCreator.create(generateTimeStats(getFilteredWallClockSamples(config, jfrParsedFile)), type, config.getTableLimit(), uuid);
     }
@@ -143,25 +149,31 @@ class StatefulJfrViewerService {
         return samples.toList();
     }
 
-    byte[] getAllocationCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getAllocationCountSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (count)", config.isReverseOn());
+        return jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace);
     }
 
-    byte[] getAllocationSizeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getAllocationSizeSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Allocation samples (size)", config.isReverseOn());
+        return jfrParsedFile.asCollapsed(getFilteredAllocationSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedAllocationEvent::getFullStackTrace, JfrParsedAllocationEvent::getSize);
     }
 
-    TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public byte[] getAllocationCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationCountSamplesCollapsed(uuid, config), "Allocation samples (count)", config.isReverseOn());
+    }
+
+    public byte[] getAllocationSizeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationSizeSamplesCollapsed(uuid, config), "Allocation samples (size)", config.isReverseOn());
+    }
+
+    public TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         SelfAndTotalTimeStats stats = generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getObjectClass);
         return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
     }
 
-    TimeTable getAllocationSizeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public TimeTable getAllocationSizeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         SelfAndTotalTimeStats stats = generateTimeStats(getFilteredAllocationSamples(config, jfrParsedFile), JfrParsedAllocationEvent::getSize, JfrParsedAllocationEvent::getObjectClass);
         return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
@@ -177,25 +189,31 @@ class StatefulJfrViewerService {
         return samples.toList();
     }
 
-    byte[] getLockCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getLockCountSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredLockSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", config.isReverseOn());
+        return jfrParsedFile.asCollapsed(getFilteredLockSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace);
     }
 
-    byte[] getLockTimeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+    public CollapsedStack getLockTimeSamplesCollapsed(UUID uuid, JfrViewerFilterAndLevelConfig config) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
-        CollapsedStack collapsed = jfrParsedFile.asCollapsed(getFilteredLockSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace, JfrParsedLockEvent::getDuration);
-        return flameGraphExecutor.generateFlameGraphHtml5(collapsed, "Lock samples", config.isReverseOn());
+        return jfrParsedFile.asCollapsed(getFilteredLockSamples(config, jfrParsedFile), config.getAdditionalLevels(), JfrParsedLockEvent::getFullStackTrace, JfrParsedLockEvent::getDuration);
     }
 
-    TimeTable getLockCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public byte[] getLockCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getLockCountSamplesCollapsed(uuid, config), "Lock samples", config.isReverseOn());
+    }
+
+    public byte[] getLockTimeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
+        return flameGraphExecutor.generateFlameGraphHtml5(getLockTimeSamplesCollapsed(uuid, config), "Lock samples", config.isReverseOn());
+    }
+
+    public TimeTable getLockCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         SelfAndTotalTimeStats stats = generateTimeStats(getFilteredLockSamples(config, jfrParsedFile), JfrParsedLockEvent::getMonitorClass);
         return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
     }
 
-    TimeTable getLockTimeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
+    public TimeTable getLockTimeSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
         JfrParsedFile jfrParsedFile = parsedFiles.get(uuid);
         SelfAndTotalTimeStats stats = generateTimeStats(getFilteredLockSamples(config, jfrParsedFile), JfrParsedLockEvent::getDuration, JfrParsedLockEvent::getMonitorClass);
         return TimeTableCreator.create(stats, type, config.getTableLimit(), uuid);
@@ -212,7 +230,7 @@ class StatefulJfrViewerService {
         return samples.toList();
     }
 
-    UUID parseNewFiles(List<String> files, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile, boolean crossFileSpanMatching) {
+    public UUID parseNewFiles(List<String> files, boolean oldAsyncProfiler, boolean wallClockExactTime, boolean unifyLambdas, boolean throwOnErroredFile, boolean crossFileSpanMatching) {
         UUID uuid = UUID.randomUUID();
         List<Path> paths = files.stream()
                 .map(Paths::get)

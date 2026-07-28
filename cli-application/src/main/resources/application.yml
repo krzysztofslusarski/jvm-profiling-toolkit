@@ -1,0 +1,11 @@
+spring:
+  main:
+    web-application-type: none
+
+# The terminal is owned by the viewer once it starts, so only the parsing phase is allowed to write to it.
+logging:
+  level:
+    root: warn
+    pl.ks: info
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %msg%n"

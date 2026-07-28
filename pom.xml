@@ -12,6 +12,7 @@
         <module>jfr-parser</module>
         <module>common</module>
         <module>viewer-application</module>
+        <module>cli-application</module>
     </modules>
 
     <parent>
@@ -33,6 +34,7 @@
         <xchart.version>3.6.0</xchart.version>
         <miglayout-swing.version>5.0</miglayout-swing.version>
         <flightrecorder.version>8.1.0</flightrecorder.version>
+        <lanterna.version>3.1.2</lanterna.version>
     </properties>
 
     <dependencyManagement>
@@ -81,6 +83,11 @@
                 <groupId>org.openjdk.jmc</groupId>
                 <artifactId>flightrecorder</artifactId>
                 <version>${flightrecorder.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.googlecode.lanterna</groupId>
+                <artifactId>lanterna</artifactId>
+                <version>${lanterna.version}</version>
             </dependency>
 
             <dependency>
