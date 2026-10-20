@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package pl.ks.viewer.flamegraph;
+package one.convert;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -12,53 +12,62 @@ import java.util.Comparator;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
-import static pl.ks.viewer.flamegraph.Frame.*;
-import static pl.ks.viewer.flamegraph.ResourceProcessor.*;
+import static one.convert.Frame.*;
+import static one.convert.ResourceProcessor.*;
 
 public class FlameGraph implements Comparator<Frame> {
     private static final Frame[] EMPTY_FRAME_ARRAY = {};
     private static final String[] FRAME_SUFFIX = {"_[0]", "_[j]", "_[i]", "", "", "_[k]", "_[1]"};
     private static final byte HAS_SUFFIX = (byte) 0x80;
     private static final int FLUSH_THRESHOLD = 15000;
+    private static final long NEW_FRAME_DIFF = Long.MIN_VALUE;
     private static final Pattern TID_FRAME_PATTERN = Pattern.compile("\\[(.* )?tid=\\d+]");
 
     private final Arguments args;
     private final Index<String> cpool = new Index<>(String.class, "");
     private final Frame root = new Frame(0, TYPE_NATIVE);
     private final StringBuilder outbuf = new StringBuilder(FLUSH_THRESHOLD + 1000);
+
+    private String title = "Flame Graph";
+    private String units;
     private int[] order;
+    private int[] cpoolMap;
     private int depth;
     private int lastLevel;
     private long lastX;
     private long lastTotal;
+    private long lastDiff;
     private long mintotal;
+    private long maxdiff = -1;
 
     public FlameGraph(Arguments args) {
         this.args = args;
     }
 
-    public void parseCollapsed(BufferedReader br) throws IOException {
+    public void parseCollapsed(Reader in) throws IOException {
         CallStack stack = new CallStack();
 
-        for (String line; (line = br.readLine()) != null; ) {
-            int space = line.lastIndexOf(' ');
-            if (space <= 0) continue;
+        try (BufferedReader br = new BufferedReader(in)) {
+            for (String line; (line = br.readLine()) != null; ) {
+                int space = line.lastIndexOf(' ');
+                if (space <= 0) continue;
 
-            long ticks = Long.parseLong(line.substring(space + 1));
+                long ticks = Long.parseLong(line.substring(space + 1));
 
-            for (int from = 0, to; from < space; from = to + 1) {
-                if ((to = line.indexOf(';', from)) < 0) to = space;
-                String name = line.substring(from, to);
-                byte type = detectType(name);
-                if ((type & HAS_SUFFIX) != 0) {
-                    name = name.substring(0, name.length() - 4);
-                    type ^= HAS_SUFFIX;
+                for (int from = 0, to; from < space; from = to + 1) {
+                    if ((to = line.indexOf(';', from)) < 0) to = space;
+                    String name = line.substring(from, to);
+                    byte type = detectType(name);
+                    if ((type & HAS_SUFFIX) != 0) {
+                        name = name.substring(0, name.length() - 4);
+                        type ^= HAS_SUFFIX;
+                    }
+                    stack.push(name, type);
                 }
-                stack.push(name, type);
-            }
 
-            addSample(stack, ticks);
-            stack.clear();
+                addSample(stack, ticks);
+                stack.clear();
+            }
         }
     }
 
@@ -66,10 +75,16 @@ public class FlameGraph implements Comparator<Frame> {
         Frame[] levels = new Frame[128];
         int level = 0;
         long total = 0;
-        boolean needRebuild = args.reverse || args.include != null || args.exclude != null;
+        boolean needRebuild = args.reverse || args.skip > 0 || args.include != null || args.exclude != null;
 
         try (BufferedReader br = new BufferedReader(in)) {
-            while (!br.readLine().startsWith("const cpool")) ;
+            for (String line; !(line = br.readLine()).startsWith("const cpool"); ) {
+                if (line.startsWith("<h1")) {
+                    title = line.substring(line.indexOf('>') + 1, line.lastIndexOf("</h1>"));
+                } else if (line.startsWith("\tconst units =")) {
+                    units = line.substring(line.indexOf('\'') + 1, line.lastIndexOf('\''));
+                }
+            }
             br.readLine();
 
             String s = "";
@@ -82,6 +97,8 @@ public class FlameGraph implements Comparator<Frame> {
             while (!br.readLine().isEmpty()) ;
 
             for (String line; !(line = br.readLine()).isEmpty(); ) {
+                if (line.startsWith("d=")) continue;  // artifact of a differential flame graph
+
                 StringTokenizer st = new StringTokenizer(line.substring(2, line.length() - 1), ",");
                 int nameAndType = Integer.parseInt(st.nextToken());
 
@@ -101,12 +118,10 @@ public class FlameGraph implements Comparator<Frame> {
 
                 int titleIndex = nameAndType >>> 3;
                 byte type = (byte) (nameAndType & 7);
-                if (st.hasMoreTokens() && (type <= TYPE_INLINED || type >= TYPE_C1_COMPILED)) {
-                    type = TYPE_JIT_COMPILED;
-                }
+                byte normalizedType = type <= TYPE_INLINED || type >= TYPE_C1_COMPILED ? TYPE_JIT_COMPILED : type;
 
-                Frame f = level > 0 || needRebuild ? new Frame(titleIndex, type) : root;
-                f.self = f.total = total;
+                Frame f = level > 0 || needRebuild ? new Frame(titleIndex, normalizedType) : root;
+                fillFrameCounters(f, type, total);
                 if (st.hasMoreTokens()) f.inlined = Long.parseLong(st.nextToken());
                 if (st.hasMoreTokens()) f.c1 = Long.parseLong(st.nextToken());
                 if (st.hasMoreTokens()) f.interpreted = Long.parseLong(st.nextToken());
@@ -169,6 +184,32 @@ public class FlameGraph implements Comparator<Frame> {
         depth = Math.max(depth, stack.size);
     }
 
+    public void diff(FlameGraph base) {
+        // Build a map that translates this cpool keys to the base flamegraph's cpool keys
+        cpoolMap = Arrays.stream(cpool.keys()).mapToInt(title -> base.cpool.getOrDefault(title, -1)).toArray();
+        diff(base.root, root);
+    }
+
+    private void diff(Frame base, Frame current) {
+        current.diff = base == null ? NEW_FRAME_DIFF : current.self - base.self;
+        maxdiff = Math.max(maxdiff, Math.abs(current.diff));
+
+        for (Frame child : current.values()) {
+            Frame baseChild = base == null ? null : base.get(translateKey(child.key));
+            diff(baseChild, child);
+        }
+    }
+
+    private int translateKey(int key) {
+        return cpoolMap[key & TITLE_MASK] | (key & ~TITLE_MASK);
+    }
+
+    public void dump(OutputStream out) throws IOException {
+        try (PrintStream ps = new PrintStream(out, false, "UTF-8")) {
+            dump(ps);
+        }
+    }
+
     public void dump(PrintStream out) {
         mintotal = (long) (root.total * args.minwidth / 100);
 
@@ -184,12 +225,21 @@ public class FlameGraph implements Comparator<Frame> {
         out.print(Math.min(depth * 16, 32767));
 
         tail = printTill(out, tail, "/*title:*/");
-        out.print(args.title);
+        out.print(args.title != null ? args.title : title);
 
         // inverted toggles the layout for reversed stacktraces from icicle to flamegraph
         // and for default stacktraces from flamegraphs to icicle.
         tail = printTill(out, tail, "/*inverted:*/false");
         out.print(args.reverse ^ args.inverted);
+
+        tail = printTill(out, tail, "/*treeview:*/false");
+        out.print(args.tree);
+
+        tail = printTill(out, tail, "/*units:*/");
+        out.print(units != null ? units : getValueUnits());
+
+        tail = printTill(out, tail, "/*maxdiff:*/-1");
+        out.print(maxdiff);
 
         tail = printTill(out, tail, "/*depth:*/0");
         out.print(depth);
@@ -225,6 +275,15 @@ public class FlameGraph implements Comparator<Frame> {
     }
 
     private void printFrame(PrintStream out, Frame frame, int level, long x) {
+        StringBuilder sb = outbuf;
+        if (frame.diff != lastDiff) {
+            if (frame.diff == NEW_FRAME_DIFF) {
+                sb.append("d=U\n");
+            } else {
+                sb.append("d=").append(frame.diff).append('\n');
+            }
+        }
+
         int nameAndType = order[frame.getTitleIndex()] << 3 | frame.getType();
         boolean hasExtraTypes = (frame.inlined | frame.c1 | frame.interpreted) != 0 &&
                 frame.inlined < frame.total && frame.interpreted < frame.total;
@@ -236,7 +295,7 @@ public class FlameGraph implements Comparator<Frame> {
             func = 'n';
         }
 
-        StringBuilder sb = outbuf.append(func).append('(').append(nameAndType);
+        sb.append(func).append('(').append(nameAndType);
         if (func == 'f') {
             sb.append(',').append(level).append(',').append(x - lastX);
         }
@@ -256,6 +315,7 @@ public class FlameGraph implements Comparator<Frame> {
         lastLevel = level;
         lastX = x;
         lastTotal = frame.total;
+        lastDiff = frame.diff;
 
         Frame[] children = frame.values().toArray(EMPTY_FRAME_ARRAY);
         Arrays.sort(children, this);
@@ -277,6 +337,9 @@ public class FlameGraph implements Comparator<Frame> {
             sb.append(strings[frame.getTitleIndex()]).append(FRAME_SUFFIX[frame.getType()]);
             if (frame.self > 0) {
                 int tmpLength = sb.length();
+                if (maxdiff >= 0) {
+                    sb.append(' ').append(frame.diff == NEW_FRAME_DIFF ? 0 : frame.self - frame.diff);
+                }
                 out.print(sb.append(' ').append(frame.self).append('\n'));
                 sb.setLength(tmpLength);
             }
@@ -292,6 +355,14 @@ public class FlameGraph implements Comparator<Frame> {
         }
 
         sb.setLength(prevLength);
+    }
+
+    private String getValueUnits() {
+        if (args.total) {
+            if (args.nativemem || args.alloc || args.live) return "bytes";
+            if (args.lock || args.nativelock || args.trace) return "ns";
+        }
+        return "samples";
     }
 
     private boolean excludeStack(CallStack stack) {
@@ -312,6 +383,21 @@ public class FlameGraph implements Comparator<Frame> {
         }
 
         return include != null;
+    }
+
+    private static void fillFrameCounters(Frame frame, byte type, long ticks) {
+        frame.self = frame.total = ticks;
+        switch (type) {
+            case TYPE_INTERPRETED:
+                frame.interpreted = ticks;
+                break;
+            case TYPE_INLINED:
+                frame.inlined = ticks;
+                break;
+            case TYPE_C1_COMPILED:
+                frame.c1 = ticks;
+                break;
+        }
     }
 
     private Frame addChild(Frame frame, String title, byte type, long ticks) {
@@ -386,5 +472,24 @@ public class FlameGraph implements Comparator<Frame> {
     @Override
     public int compare(Frame f1, Frame f2) {
         return order[f1.getTitleIndex()] - order[f2.getTitleIndex()];
+    }
+
+    public static FlameGraph parse(String input, Arguments args) throws IOException {
+        FlameGraph fg = new FlameGraph(args);
+        try (InputStreamReader in = new InputStreamReader(new FileInputStream(input), StandardCharsets.UTF_8)) {
+            if (input.endsWith(".html")) {
+                fg.parseHtml(in);
+            } else {
+                fg.parseCollapsed(in);
+            }
+        }
+        return fg;
+    }
+
+    public static void convert(String input, String output, Arguments args) throws IOException {
+        FlameGraph fg = parse(input, args);
+        try (PrintStream out = new PrintStream(output, "UTF-8")) {
+            fg.dump(out);
+        }
     }
 }

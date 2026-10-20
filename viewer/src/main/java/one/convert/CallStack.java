@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package pl.ks.viewer.flamegraph;
+package one.convert;
 
 import java.util.Arrays;
 

@@ -122,12 +122,14 @@ public class JfrParsedFile {
     void calculateAggregatedDates() {
         minEventDate = getMinDate(List.of(
                 getMinDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
+                getMinDate(wallClockSamples, JfrParsedExecutionSampleEvent::getEventTime),
                 getMinDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
                 getMinDate(lockSamples, JfrParsedLockEvent::getEventTime),
                 getMinDate(spans, JfrSpanInfo::getEventTime)
         ), identity());
         maxEventDate = getMaxDate(List.of(
                 getMaxDate(executionSamples, JfrParsedExecutionSampleEvent::getEventTime),
+                getMaxDate(wallClockSamples, JfrParsedExecutionSampleEvent::getEventTime),
                 getMaxDate(allocationSamples, JfrParsedAllocationEvent::getEventTime),
                 getMaxDate(lockSamples, JfrParsedLockEvent::getEventTime),
                 getMaxDate(spans, JfrSpanInfo::getEventTime)

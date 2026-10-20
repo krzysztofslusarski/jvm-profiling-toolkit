@@ -15,14 +15,16 @@
  */
 package pl.ks.viewer.flamegraph;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.FileReader;
 import java.io.PrintStream;
+import java.io.Reader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import one.convert.Arguments;
+import one.convert.FlameGraph;
 import pl.ks.collapsed.CollapsedStack;
-import pl.ks.collapsed.CollapsedStackBufferedReader;
+import pl.ks.collapsed.CollapsedStackReader;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,8 +38,8 @@ public class FlameGraphExecutor {
                 args = new String[]{"--title", title, inputFile, outputFile};
             }
             FlameGraph flameGraph = new FlameGraph(new Arguments(args));
-            try (BufferedReader bufferedReader = new BufferedReader(new FileReader(inputFile))) {
-                flameGraph.parseCollapsed(bufferedReader);
+            try (Reader reader = new FileReader(inputFile)) {
+                flameGraph.parseCollapsed(reader);
             }
             try (PrintStream printStream = new PrintStream(outputFile)) {
                 flameGraph.dump(printStream);
@@ -57,8 +59,8 @@ public class FlameGraphExecutor {
                 args = new String[]{"--title", title};
             }
             FlameGraph flameGraph = new FlameGraph(new Arguments(args));
-            try (CollapsedStackBufferedReader bufferedReader = new CollapsedStackBufferedReader(inputFile)) {
-                flameGraph.parseCollapsed(bufferedReader);
+            try (Reader reader = new CollapsedStackReader(inputFile)) {
+                flameGraph.parseCollapsed(reader);
             }
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             flameGraph.dump(new PrintStream(byteArrayOutputStream));

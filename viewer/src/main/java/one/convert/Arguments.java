@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package pl.ks.viewer.flamegraph;
+package one.convert;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 public class Arguments {
-    public String title = "Flame Graph";
+    public String title;
     public String highlight;
     public String output;
     public String state;
@@ -19,17 +19,23 @@ public class Arguments {
     public Pattern exclude;
     public double minwidth;
     public double grain;
+    public double tail = 0.1;
     public int skip;
     public boolean help;
     public boolean reverse;
     public boolean inverted;
+    public boolean tree;
+    public boolean diff;
     public boolean cpu;
+    public boolean cpuTime;
     public boolean wall;
     public boolean alloc;
     public boolean nativemem;
+    public boolean nativelock;
     public boolean leak;
     public boolean live;
     public boolean lock;
+    public boolean trace;
     public boolean threads;
     public boolean classify;
     public boolean total;
@@ -40,6 +46,8 @@ public class Arguments {
     public boolean dot;
     public long from;
     public long to;
+    public long latency = -1;
+    public Pattern tag;
     public final List<String> files = new ArrayList<>();
 
     public Arguments(String... args) {
@@ -47,7 +55,7 @@ public class Arguments {
             String arg = args[i];
             String fieldName;
             if (arg.startsWith("--")) {
-                fieldName = arg.substring(2);
+                fieldName = toCamelCase(arg.substring(2));
             } else if (arg.startsWith("-") && arg.length() == 2) {
                 fieldName = alias(arg.charAt(1));
             } else {
@@ -69,9 +77,9 @@ public class Arguments {
                 } else if (type == int.class) {
                     f.setInt(this, Integer.parseInt(args[++i]));
                 } else if (type == double.class) {
-                    f.setDouble(this, Double.parseDouble(args[++i]));
+                    f.setDouble(this, parseRatio(args[++i]));
                 } else if (type == long.class) {
-                    f.setLong(this, parseTimestamp(args[++i]));
+                    f.setLong(this, fieldName.equals("latency") ? parseDuration(args[++i]) : parseTimestamp(args[++i]));
                 } else if (type == Pattern.class) {
                     f.set(this, Pattern.compile(args[++i]));
                 }
@@ -102,6 +110,38 @@ public class Arguments {
             default:
                 return String.valueOf(c);
         }
+    }
+
+    private static String toCamelCase(String name) {
+        for (int i; (i = name.lastIndexOf('-', name.length() - 2)) >= 0; ) {
+            name = name.substring(0, i) + Character.toUpperCase(name.charAt(i + 1)) + name.substring(i + 2);
+        }
+        return name;
+    }
+
+    // Absolute floating point value or percentage followed by %
+    private static double parseRatio(String value) {
+        if (value.endsWith("%")) {
+            return Double.parseDouble(value.substring(0, value.length() - 1)) / 100;
+        }
+        return Double.parseDouble(value);
+    }
+
+    // Parses a number with units and returns duration in nanoseconds
+    private static long parseDuration(String time) {
+        if (time.endsWith("s")) {
+            int multiplier = 1000_000_000;
+            if (time.endsWith("ms")) {
+                multiplier = 1000_000;
+            } else if (time.endsWith("us")) {
+                multiplier = 1000;
+            } else if (time.endsWith("ns")) {
+                multiplier = 1;
+            }
+            int suffixLen = multiplier == 1000_000_000 ? 1 : 2;
+            return Long.parseLong(time.substring(0, time.length() - suffixLen)) * multiplier;
+        }
+        return Long.parseLong(time) * 1000_000;
     }
 
     // Milliseconds or HH:mm:ss.S or yyyy-MM-dd'T'HH:mm:ss.S
