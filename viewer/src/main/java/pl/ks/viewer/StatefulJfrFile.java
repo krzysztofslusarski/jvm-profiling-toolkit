@@ -11,6 +11,7 @@ import pl.ks.jfr.parser.JfrParsedFile;
 @Builder
 public class StatefulJfrFile {
     UUID id;
+    String customName;
     Instant parseStartDate;
     List<String> filenames;
     String methodName;

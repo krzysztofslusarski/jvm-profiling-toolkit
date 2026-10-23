@@ -423,6 +423,14 @@ table.data-table th.text-right { text-align: right; }
     color: var(--text-sidebar-active);
     text-decoration: none;
 }
+.viewer-sidebar .sidebar-file-name {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-sidebar-active);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    word-break: break-word;
+}
 .viewer-sidebar .sidebar-section {
     padding: 1rem 1.25rem;
     border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -589,6 +597,13 @@ table.data-table th.text-right { text-align: right; }
 
 /* ---- Iframe content pages ---- */
 .iframe-page { padding: 1.5rem; }
+.iframe-page .page-file-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    word-break: break-word;
+}
 .iframe-page .section-title {
     font-size: 1.125rem;
     font-weight: 600;

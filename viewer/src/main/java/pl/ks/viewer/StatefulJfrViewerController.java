@@ -20,6 +20,7 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -43,6 +44,11 @@ class StatefulJfrViewerController {
     public static final String ON = "on";
     private final StatefulJfrViewerService jfrViewerService;
 
+    @ModelAttribute("customName")
+    String customName(@RequestParam(value = "id", required = false) UUID uuid) {
+        return uuid == null ? null : jfrViewerService.getCustomName(uuid);
+    }
+
     @GetMapping("/upload-stateful-jfr")
     String uploadJfr(Model model) {
         model.addAttribute("files", jfrViewerService.getFiles());
@@ -51,6 +57,7 @@ class StatefulJfrViewerController {
 
     @PostMapping("/upload-stateful-jfr")
     String upload(Model model, @RequestParam("files") MultipartFile[] files,
+                  @RequestParam(value = "customName", required = false) String customName,
                   @RequestParam(value = "oldAsyncProfiler", required = false) Boolean oldAsyncProfiler,
                   @RequestParam(value = "wallClockExactTime", required = false) Boolean wallClockExactTime,
                   @RequestParam(value = "throwOnErroredFile", required = false) Boolean throwOnErroredFile,
@@ -64,10 +71,11 @@ class StatefulJfrViewerController {
             IOUtils.copy(file.getInputStream(), new FileOutputStream(filePath));
             savedCopies.add(filePath);
         }
-        jfrViewerService.parseNewFiles(savedCopies, oldAsyncProfiler != null && oldAsyncProfiler,
+        UUID uuid = jfrViewerService.parseNewFiles(savedCopies, oldAsyncProfiler != null && oldAsyncProfiler,
                 wallClockExactTime != null && wallClockExactTime, unifyLambdas != null && unifyLambdas,
                 throwOnErroredFile != null && throwOnErroredFile,
                 crossFileSpanMatching != null && crossFileSpanMatching);
+        jfrViewerService.setCustomName(uuid, customName);
         return uploadJfr(model);
     }
 

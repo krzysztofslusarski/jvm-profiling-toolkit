@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import one.convert.Arguments;
 import one.convert.FlameGraph;
+import org.springframework.web.util.HtmlUtils;
 import pl.ks.collapsed.CollapsedStack;
 import pl.ks.collapsed.CollapsedStackReader;
 
@@ -52,11 +53,13 @@ public class FlameGraphExecutor {
 
     public byte[] generateFlameGraphHtml5(CollapsedStack inputFile, String title, boolean reversed) {
         try {
+            // FlameGraph prints the title into the HTML as-is, and it may contain a user-provided name
+            String escapedTitle = HtmlUtils.htmlEscape(title);
             String[] args;
             if (reversed) {
-                args = new String[]{"--title", title, "--reverse"};
+                args = new String[]{"--title", escapedTitle, "--reverse"};
             } else {
-                args = new String[]{"--title", title};
+                args = new String[]{"--title", escapedTitle};
             }
             FlameGraph flameGraph = new FlameGraph(new Arguments(args));
             try (Reader reader = new CollapsedStackReader(inputFile)) {

@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${customName != null ? customName + ' - CPU Statistics' : 'CPU Statistics'}">CPU Statistics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -85,6 +86,7 @@
 </script>
 
 <div class="iframe-page">
+    <div th:if="${customName != null}" class="page-file-name" th:text="${customName}"></div>
 
     <div class="chart-container">
         <h4 class="section-title">CPU Statistics - Machine Total</h4>

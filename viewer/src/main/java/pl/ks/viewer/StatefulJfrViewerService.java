@@ -40,6 +40,7 @@ import pl.ks.viewer.flamegraph.FlameGraphExecutor;
 @RequiredArgsConstructor
 public class StatefulJfrViewerService {
     private final Map<UUID, JfrParsedFile> parsedFiles = new ConcurrentHashMap<>();
+    private final Map<UUID, String> customNames = new ConcurrentHashMap<>();
 
     private final JfrParser jfrParser;
     private final FlameGraphExecutor flameGraphExecutor;
@@ -49,6 +50,7 @@ public class StatefulJfrViewerService {
                 .sorted(Comparator.comparing(o -> o.getValue().getParseStartDate()))
                 .map(entry -> StatefulJfrFile.builder()
                         .id(entry.getKey())
+                        .customName(customNames.get(entry.getKey()))
                         .parseStartDate(entry.getValue().getParseStartDate())
                         .filenames(entry.getValue().getFilenames())
                         .build()
@@ -58,6 +60,24 @@ public class StatefulJfrViewerService {
 
     void remove(UUID uuid) {
         parsedFiles.remove(uuid);
+        customNames.remove(uuid);
+    }
+
+    String getCustomName(UUID uuid) {
+        return customNames.get(uuid);
+    }
+
+    private String flameGraphTitle(UUID uuid, String title) {
+        String customName = getCustomName(uuid);
+        return customName == null ? title : customName + " - " + title;
+    }
+
+    void setCustomName(UUID uuid, String customName) {
+        if (customName == null || customName.isBlank()) {
+            customNames.remove(uuid);
+        } else {
+            customNames.put(uuid, customName.strip());
+        }
     }
 
     public JfrParsedFile getFile(UUID uuid) {
@@ -112,11 +132,11 @@ public class StatefulJfrViewerService {
     }
 
     public byte[] getExecutionSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getExecutionSamplesCollapsed(uuid, config), "Execution samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getExecutionSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Execution samples"), config.isReverseOn());
     }
 
     public byte[] getWallClockSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getWallClockSamplesCollapsed(uuid, config), "Wall-clock samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getWallClockSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Wall-clock samples"), config.isReverseOn());
     }
 
     public TimeTable getExecutionSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
@@ -160,11 +180,11 @@ public class StatefulJfrViewerService {
     }
 
     public byte[] getAllocationCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationCountSamplesCollapsed(uuid, config), "Allocation samples (count)", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationCountSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Allocation samples (count)"), config.isReverseOn());
     }
 
     public byte[] getAllocationSizeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationSizeSamplesCollapsed(uuid, config), "Allocation samples (size)", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getAllocationSizeSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Allocation samples (size)"), config.isReverseOn());
     }
 
     public TimeTable getAllocationCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
@@ -200,11 +220,11 @@ public class StatefulJfrViewerService {
     }
 
     public byte[] getLockCountSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getLockCountSamplesCollapsed(uuid, config), "Lock samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getLockCountSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Lock samples"), config.isReverseOn());
     }
 
     public byte[] getLockTimeSamplesFlameGraph(UUID uuid, JfrViewerFilterAndLevelConfig config) {
-        return flameGraphExecutor.generateFlameGraphHtml5(getLockTimeSamplesCollapsed(uuid, config), "Lock samples", config.isReverseOn());
+        return flameGraphExecutor.generateFlameGraphHtml5(getLockTimeSamplesCollapsed(uuid, config), flameGraphTitle(uuid, "Lock samples"), config.isReverseOn());
     }
 
     public TimeTable getLockCountSamplesTimeStats(UUID uuid, JfrViewerFilterAndLevelConfig config, TimeTable.Type type) {
@@ -390,6 +410,7 @@ public class StatefulJfrViewerService {
         UUID childUuid = UUID.randomUUID();
         JfrParsedFile childFile = jfrParser.trim(getFile(parentUuid), methodName, direction);
         addNewFile(childUuid, childFile);
+        setCustomName(childUuid, getCustomName(parentUuid));
         return childUuid;
     }
 }
